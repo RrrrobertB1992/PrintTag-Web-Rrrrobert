@@ -337,7 +337,9 @@ const app = {
                             'spoolmanId', 'lotNr',
                             'materialName', 'gtin', 'materialAbbr', 'density',
                             'diameter', 'preheatTemp', 'mfgDate', 'nominalWeight',
-                            'actualWeight', 'spoolWeight', 'countryCode'];
+                            'actualWeight', 'spoolWeight', 'countryCode',
+                            'colorName', 'printTemp', 'bedTemp', 'chamberTemp',
+                            'dryTemp', 'dryTime', 'td'];
 
         inputFields.forEach(id => {
             const element = document.getElementById(id);
@@ -356,25 +358,24 @@ const app = {
 
         nfcReader.stop();
 
-        const format = formats.detectFormatFromFilename(file.name);
-        if (!format) {
-            this.showStatus('readStatus', 'error', 'Unsupported file type');
-            return;
-        }
-
         let output = `File: ${file.name}\n\n`;
         const reader = new FileReader();
 
         reader.onload = (e) => {
             try {
-                const data = formats.parseData(format, e.target.result);
+                const result = formats.parseFile(file.name, e.target.result);
+                if (!result) {
+                    this.showStatus('readStatus', 'error', 'Unsupported or invalid file');
+                    return;
+                }
+                const { format, data } = result;
                 this.populateForm(data, format);
                 output += `Format: ${formats.getDisplayName(format)}\n`;
                 output += `Material: ${data.materialType}\n`;
                 this.showDecodedData(output);
                 this.transitionToForm(format);
             } catch (err) {
-                this.showStatus('readStatus', 'error', `Invalid ${format} file`);
+                this.showStatus('readStatus', 'error', 'Invalid file');
             }
         };
 
@@ -439,6 +440,15 @@ const app = {
         document.getElementById('actualWeight').value = data.actualWeight || '';
         document.getElementById('spoolWeight').value = data.emptySpoolWeight || '';
         document.getElementById('countryCode').value = data.countryOfOrigin || '';
+        // Bytes of a loaded OpenTag3D tag; reset by any other load or new tag
+        this.opentag3dBase = data.opentag3dBase || null;
+        document.getElementById('colorName').value = data.colorName || '';
+        document.getElementById('printTemp').value = data.printTemp || '';
+        document.getElementById('bedTemp').value = data.bedTemp || '';
+        document.getElementById('chamberTemp').value = data.chamberTemp || '';
+        document.getElementById('dryTemp').value = data.dryTemp || '';
+        document.getElementById('dryTime').value = data.dryTime || '';
+        document.getElementById('td').value = data.td || '';
         document.getElementById('matteFinish').checked = data.matteFinish || false;
         document.getElementById('silkFinish').checked = data.silkFinish || false;
         document.getElementById('translucent').checked = data.translucent || false;
@@ -489,6 +499,16 @@ const app = {
             actualWeight: document.getElementById('actualWeight').value,
             emptySpoolWeight: document.getElementById('spoolWeight').value,
             countryOfOrigin: document.getElementById('countryCode').value,
+
+            // OpenTag3D
+            opentag3dBase: this.opentag3dBase || null,
+            colorName: document.getElementById('colorName').value,
+            printTemp: document.getElementById('printTemp').value,
+            bedTemp: document.getElementById('bedTemp').value,
+            chamberTemp: document.getElementById('chamberTemp').value,
+            dryTemp: document.getElementById('dryTemp').value,
+            dryTime: document.getElementById('dryTime').value,
+            td: document.getElementById('td').value,
 
             // Visual/material tags
             matteFinish: document.getElementById('matteFinish').checked,
@@ -643,6 +663,12 @@ const app = {
                 }
             });
 
+        // Hide headed groups (e.g. Visual Properties) when none of their fields apply
+        document.querySelectorAll('.field-group').forEach(group => {
+            const fields = Array.from(group.querySelectorAll('[data-field]'));
+            group.classList.toggle('hidden', fields.length > 0 && fields.every(el => el.classList.contains('hidden')));
+        });
+
         // Show/hide the Advanced section automatically: if any [data-field] inside it is available
         const advancedSection = document.getElementById('advancedSection');
         if (advancedSection) {
@@ -703,14 +729,28 @@ const app = {
             sizeInfo.style.background = colorStyle;
             document.getElementById('recordSize').textContent = `${size} bytes (${tagType})`;
 
+            // List values that will change when written (e.g. shortened text)
+            const warnings = formats.getWarnings(format, formData);
+            const warningsBox = document.getElementById('formatWarnings');
+            const warningsList = document.getElementById('formatWarningsList');
+            warningsList.innerHTML = '';
+            warnings.forEach(text => {
+                const li = document.createElement('li');
+                li.textContent = text;
+                warningsList.appendChild(li);
+            });
+            warningsBox.classList.toggle('hidden', warnings.length === 0);
+
             // Show Orca profile name for openspool_extended (Snapmaker U1 Extended)
             const orcaProfileInfo = document.getElementById('orcaProfileInfo');
             const orcaProfileName = document.getElementById('orcaProfileName');
 
-            if (format === 'openspool_extended') {
-                const brand = formData.brand || 'Generic';
-                const material = formData.materialType || 'PLA';
-                const subtype = formData.extendedSubType ?? '';
+            if (format === 'openspool_extended' || format === 'opentag3d') {
+                // For OpenTag3D, use what a reader decodes from the tag (e.g. shortened names)
+                const tag = format === 'opentag3d' ? OpenTag3D.parseData(OpenTag3D.generateData(formData)) : formData;
+                const brand = tag.brand || 'Generic';
+                const material = tag.materialType || 'PLA';
+                const subtype = tag.extendedSubType ?? '';
                 const profileName = `${brand} ${material} ${subtype}`.trim();
 
                 orcaProfileName.textContent = profileName;
