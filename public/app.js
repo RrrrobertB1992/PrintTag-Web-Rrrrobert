@@ -340,11 +340,6 @@ const app = {
             });
         }
 
-        document.getElementById('alphaRange').addEventListener('input', () => {
-            this.updateAlphaLabel();
-            this.updateRecordSize();
-        });
-
         // Keep each palette's hidden value in sync with its custom text box,
         // within the selected format's text limits
         for (const name in this.palettes) {
@@ -454,8 +449,6 @@ const app = {
         document.getElementById('bedTempMax').value = data.bedTempMax || '';
         document.getElementById('spoolmanId').value = data.spoolmanId || '';
         document.getElementById('lotNr').value = data.lotNr || '';
-        document.getElementById('alphaRange').value = parseInt(data.alpha || 'FF', 16);
-        this.updateAlphaLabel();
         this.setPaletteFromData('variant', data.extendedSubType ?? '');
 
         // Advanced fields
@@ -504,7 +497,6 @@ const app = {
             materialType: document.getElementById('materialType').value,
             brand: brand || 'Generic',
             colorHex: document.getElementById('colorHex1').value.replace('#', ''),
-            alpha: parseInt(document.getElementById('alphaRange').value, 10).toString(16).padStart(2, '0').toUpperCase(),
             colorHex2: this.getExtraColor(2),
             colorHex3: this.getExtraColor(3),
             colorHex4: this.getExtraColor(4),
@@ -1151,11 +1143,6 @@ const app = {
             document.querySelector(`.extra-color[data-color-index="${i}"]`).style.display = prevEnabled ? '' : 'none';
             document.getElementById(`colorFields${i}`).style.display = enabled ? '' : 'none';
         }
-    },
-
-    updateAlphaLabel() {
-        const alpha = parseInt(document.getElementById('alphaRange').value, 10);
-        document.getElementById('alphaValue').textContent = `${Math.round(alpha / 255 * 100)}%`;
     },
 
     showStatus(id, type, message) {

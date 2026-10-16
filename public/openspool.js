@@ -25,24 +25,12 @@ const OpenSpool = {
             colorHex2: 'additional_color_hexes',
             colorHex3: 'additional_color_hexes',
             colorHex4: 'additional_color_hexes',
-            colorHex5: 'additional_color_hexes',
-            // Read by OpenRFID; only written when they differ from its defaults
-            nominalWeight: 'weight',
-            filamentDiameter: 'diameter',
-            alpha: 'alpha'
+            colorHex5: 'additional_color_hexes'
         }
     },
 
     // Most extra colors a tag can carry (OpenRFID reads up to 4)
     MAX_ADDITIONAL_COLORS: 4,
-
-    // What OpenRFID assumes when a key is missing. Matching values are left
-    // off the tag so basic tags still fit an NTAG213.
-    DEFAULTS: {
-        weight: 1000,
-        diameter: 1.75,
-        alpha: 'FF'
-    },
 
     // Return list of fields available based on formData (e.g., format)
     availableFields: function(formData) {
@@ -101,20 +89,6 @@ const OpenSpool = {
             data.subtype = formData.extendedSubType;
         }
 
-        const weight = parseInt(formData.nominalWeight, 10);
-        if (!isNaN(weight) && weight > 0 && weight !== this.DEFAULTS.weight) {
-            data.weight = weight;
-        }
-        const diameter = parseFloat(formData.filamentDiameter);
-        if (!isNaN(diameter) && diameter > 0 && diameter !== this.DEFAULTS.diameter) {
-            data.diameter = diameter;
-        }
-        // Two hex digits (00 = clear, FF = opaque); OpenRFID parses it as hex
-        const alpha = /^[0-9A-Fa-f]{2}$/.test(formData.alpha || '') ? formData.alpha.toUpperCase() : null;
-        if (alpha && alpha !== this.DEFAULTS.alpha) {
-            data.alpha = alpha;
-        }
-
         return data;
     },
 
@@ -148,12 +122,7 @@ const OpenSpool = {
             bedTempMax: jsonData.bed_max_temp || '',
             spoolmanId: jsonData.spool_id || 0,
             lotNr: jsonData.lot_nr || '',
-            extendedSubType: jsonData.subtype || '',
-            nominalWeight: jsonData.weight != null ? String(jsonData.weight) : '',
-            filamentDiameter: jsonData.diameter != null ? String(jsonData.diameter) : '1.75',
-            alpha: /^[0-9A-Fa-f]{1,2}$/.test(String(jsonData.alpha ?? ''))
-                ? String(jsonData.alpha).padStart(2, '0').toUpperCase()
-                : 'FF'
+            extendedSubType: jsonData.subtype || ''
         };
 
         // Extra colors map to colorHex2..colorHex5 in order
