@@ -323,6 +323,11 @@ const app = {
             this.updateVisibility();
         });
 
+        document.getElementById('alphaRange').addEventListener('input', () => {
+            this.updateAlphaLabel();
+            this.updateRecordSize();
+        });
+
         document.getElementById('showAdditionalColors').addEventListener('change', (e) => {
             this.toggleAdditionalColors(e.target.checked);
         });
@@ -425,6 +430,8 @@ const app = {
         document.getElementById('bedTempMax').value = data.bedTempMax || '';
         document.getElementById('spoolmanId').value = data.spoolmanId || '';
         document.getElementById('lotNr').value = data.lotNr || '';
+        document.getElementById('alphaRange').value = parseInt(data.alpha || 'FF', 16);
+        this.updateAlphaLabel();
         this.setPaletteValue('variant', data.extendedSubType ?? '');
 
         // Advanced fields
@@ -464,6 +471,7 @@ const app = {
             materialType: document.getElementById('materialType').value,
             brand: brand || 'Generic',
             colorHex: document.getElementById('colorHex1').value.replace('#', ''),
+            alpha: parseInt(document.getElementById('alphaRange').value, 10).toString(16).padStart(2, '0').toUpperCase(),
             colorHex2: document.getElementById('colorHex2').value.replace('#', ''),
             colorHex3: document.getElementById('colorHex3').value.replace('#', ''),
             colorHex4: document.getElementById('colorHex4').value.replace('#', ''),
@@ -642,6 +650,12 @@ const app = {
                     el.classList.add('hidden');
                 }
             });
+
+        // Hide headed groups (e.g. Visual Properties) when none of their fields apply
+        document.querySelectorAll('.field-group').forEach(group => {
+            const fields = Array.from(group.querySelectorAll('[data-field]'));
+            group.classList.toggle('hidden', fields.length > 0 && fields.every(el => el.classList.contains('hidden')));
+        });
 
         // Show/hide the Advanced section automatically: if any [data-field] inside it is available
         const advancedSection = document.getElementById('advancedSection');
@@ -837,6 +851,11 @@ const app = {
         const result = rgb.match(/\d+/g);
         if (!result) return rgb;
         return '#' + result.slice(0, 3).map(x => parseInt(x).toString(16).padStart(2, '0')).join('');
+    },
+
+    updateAlphaLabel() {
+        const alpha = parseInt(document.getElementById('alphaRange').value, 10);
+        document.getElementById('alphaValue').textContent = `${Math.round(alpha / 255 * 100)}%`;
     },
 
     toggleAdditionalColors(show) {
