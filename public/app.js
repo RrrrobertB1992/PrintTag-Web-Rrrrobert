@@ -388,7 +388,14 @@ const app = {
     },
 
     populateForm(data, format) {
-        document.getElementById('formatSelect').value = data.format || format;
+        // Formats only offered for existing tags (OpenPrintTag, OpenTag3D) aren't in
+        // the Create list, so add them first or the select falls back to OpenSpool
+        const formatSelect = document.getElementById('formatSelect');
+        const loadedFormat = data.format || format;
+        if (!Array.from(formatSelect.options).some(o => o.value === loadedFormat)) {
+            this.populateFormats(true, loadedFormat);
+        }
+        formatSelect.value = loadedFormat;
         this.setPaletteValue('material', data.materialType || 'PLA');
 
         // Populate all four color fields
