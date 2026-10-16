@@ -711,6 +711,9 @@ const app = {
 
     updateRecordSize() {
         try {
+            // Field visibility can depend on values (e.g. OpenTag3D hides the
+            // variant for CF/GF materials), so refresh it on every change
+            this.updateVisibility();
             const format = document.getElementById('formatSelect').value;
             const formData = this.getFormData();
             const size = formats.calculateRecordSize(format, formData);
