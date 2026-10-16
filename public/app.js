@@ -108,7 +108,12 @@ const app = {
             inputId: 'materialType',
             items: () => Object.keys(app.materialPresets),
             defaultValue: 'PLA',
-            onSelect() { app.applyTemperaturePreset(); app.updateVisibility(); },
+            customInputId: 'materialInput',
+            onSelect(value) {
+                // A custom material has no preset, so leave the temps as they are
+                if (value !== 'custom') app.applyTemperaturePreset();
+                app.updateVisibility();
+            },
         },
         brand: {
             paletteId: 'brandPalette',
@@ -394,7 +399,7 @@ const app = {
 
     populateForm(data, format) {
         document.getElementById('formatSelect').value = data.format || format;
-        this.setPaletteValue('material', data.materialType || 'PLA');
+        this.setPaletteFromData('material', data.materialType || 'PLA');
 
         // Populate all four color fields
         document.getElementById('colorHex1').value = data.colorHex || 'FFFFFF';
