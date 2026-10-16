@@ -242,7 +242,15 @@ const ColorPicker = {
         if (!hsv) return;
 
         this.state[i] = this.state[i] || {};
-        [this.state[i].hue, this.state[i].s, this.state[i].v] = hsv;
+        const st = this.state[i];
+        // Keep the picker as it is if it already shows this color. White, gray
+        // and black have no hue, so re-reading them would reset the hue the
+        // slider just set and snap the square back to red.
+        if (st.hue !== undefined && this.hsvToHex(st.hue, st.s, st.v) === this.hsvToHex(...hsv)) {
+            this.redraw(i);
+            return;
+        }
+        [st.hue, st.s, st.v] = hsv;
         this.redraw(i);
     },
 
@@ -294,11 +302,6 @@ const ColorPicker = {
             const pickHue = (evt) => {
                 const rect = hueBar.getBoundingClientRect();
                 this.state[i].hue = Math.max(0, Math.min(1, (evt.clientX - rect.left) / rect.width));
-                // White, gray and black have no saturation, so the hue alone
-                // wouldn't change them (e.g. the default white). Give them full
-                // saturation, and black full brightness, so the hue shows up.
-                if (this.state[i].s === 0) this.state[i].s = 1;
-                if (this.state[i].v === 0) this.state[i].v = 1;
                 applyColor();
                 this.redraw(i);
             };
