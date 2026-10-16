@@ -327,6 +327,24 @@ const app = {
             this.toggleAdditionalColors(e.target.checked);
         });
 
+        // Keep typed custom values within the selected format's limits
+        for (const name in this.palettes) {
+            const config = this.palettes[name];
+            if (!config.customInputId) continue;
+            document.getElementById(config.customInputId).addEventListener('input', (e) => {
+                const limited = this.limitText(name, e.target.value);
+                if (limited !== e.target.value) {
+                    e.target.value = limited;
+                    document.getElementById(config.inputId).value = limited.trim();
+                    this.updateRecordSize();
+                }
+            });
+        }
+        document.getElementById('lotNr').addEventListener('input', (e) => {
+            const limited = this.limitText('lotNr', e.target.value);
+            if (limited !== e.target.value) e.target.value = limited;
+        });
+
         document.getElementById('brandInput').addEventListener('input', () => {
             document.getElementById('brandValue').value = document.getElementById('brandInput').value || '';
             this.updateRecordSize();
@@ -670,6 +688,8 @@ const app = {
                 }
             });
 
+        this.applyFormatLimits(format);
+
         // Hide headed groups (e.g. Visual Properties) when none of their fields apply
         document.querySelectorAll('.field-group').forEach(group => {
             const fields = Array.from(group.querySelectorAll('[data-field]'));
@@ -684,6 +704,39 @@ const app = {
             const hasAdvanced = !!(available && advancedFields.some(k => available.has(k)));
             advancedSection.classList.toggle('hidden', !hasAdvanced);
         }
+    },
+
+    // Text limits of the selected format (e.g. OpenTag3D's fixed-size fields)
+    limitText(kind, value) {
+        const cfg = formats.FORMATS[document.getElementById('formatSelect').value];
+        const module = cfg && cfg.module;
+        return module && typeof module.limitText === 'function' ? module.limitText(kind, value) : value;
+    },
+
+    // Hide preset swatches that don't fit the format, cap custom text boxes,
+    // and use the format's label for the lot number field
+    applyFormatLimits(format) {
+        const module = formats.FORMATS[format] && formats.FORMATS[format].module;
+        const limits = (module && module.TEXT_LIMITS) || {};
+        for (const name in this.palettes) {
+            const config = this.palettes[name];
+            document.querySelectorAll(`#${config.paletteId} .material-swatch`).forEach(el => {
+                const value = el.dataset.value;
+                const fits = value === 'custom' || this.limitText(name, value) === value;
+                el.classList.toggle('hidden', !fits);
+            });
+            if (config.customInputId) {
+                const input = document.getElementById(config.customInputId);
+                // Room for a -CF/-GF suffix on materials
+                if (limits[name]) input.maxLength = limits[name] + (name === 'material' ? 3 : 0);
+                else input.removeAttribute('maxlength');
+            }
+        }
+
+        const lot = (module && module.LOT_FIELD) || { label: 'Lot Number', hint: '8 hex characters', maxLength: 8 };
+        document.getElementById('lotNrLabel').textContent = lot.label;
+        document.getElementById('lotNrHint').textContent = lot.hint;
+        document.getElementById('lotNr').maxLength = lot.maxLength;
     },
 
     applyTemperaturePreset() {

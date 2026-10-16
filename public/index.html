@@ -605,13 +605,13 @@
                     </small>
                 </div>
                 <div class="form-group" data-field="lotNr">
-                    <label>Lot Number</label>
+                    <label id="lotNrLabel">Lot Number</label>
                     <div style="display: flex; gap: 0.5rem;">
                         <input type="text" id="lotNr" placeholder="ABCD1234" maxlength="8" style="flex: 1; font-family: monospace;">
                         <button type="button" class="btn-secondary" onclick="app.randomizeLotNr()" style="width: auto; padding: 0.75rem 1rem; margin-top: 0;">🎲</button>
                     </div>
-                    <small style="color: var(--text-secondary); font-size: 0.8rem; display: block; margin-top: 0.25rem;">
-                        8 hex characters (auto-generated for new tags)
+                    <small id="lotNrHint" style="color: var(--text-secondary); font-size: 0.8rem; display: block; margin-top: 0.25rem;">
+                        8 hex characters
                     </small>
                 </div>
             </div>

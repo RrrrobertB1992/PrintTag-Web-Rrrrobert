@@ -60,6 +60,13 @@ const OpenTag3D = {
     // Modifiers that belong to the material name (PLA + CF -> PLA-CF)
     FIBER_MODIFIERS: ['CF', 'GF'],
 
+    // Byte limits for typed text (field lengths in the memory map). Material
+    // may also carry a -CF/-GF suffix, which is stored in the modifier field.
+    TEXT_LIMITS: { brand: 16, material: 5, variant: 5, lotNr: 32 },
+
+    // The lot number field holds the tag's Serial / Batch ID
+    LOT_FIELD: { label: 'Serial / Batch ID', hint: 'Up to 32 characters', maxLength: 32 },
+
     availableFields: function(formData) {
         const fields = new Set([
             'materialType', 'brand', 'extendedSubType',
@@ -184,7 +191,7 @@ const OpenTag3D = {
             else clear(`color_${i}`);
         }
 
-        putString('serial', 'Lot number', formData.lotNr);
+        putString('serial', 'Serial', formData.lotNr);
 
         const gtin = (formData.gtin || '').trim();
         clear('barcode');
@@ -245,6 +252,23 @@ const OpenTag3D = {
         putInt('td', (num(formData.td) ?? 0) * 10);
 
         return { bytes, warnings };
+    },
+
+    // Cut typed text to what the tag can store (used while typing, so nothing
+    // is shortened later). kind is a TEXT_LIMITS key.
+    limitText: function(kind, value) {
+        const max = this.TEXT_LIMITS[kind];
+        if (!max || value == null) return value;
+        const cut = (str, bytes) => new TextDecoder().decode(this.truncateUtf8(str, bytes).encoded);
+        if (kind === 'material') {
+            // Allow a (partly typed) -CF/-GF suffix after the base material
+            const dash = value.lastIndexOf('-');
+            const suffix = dash > 0 ? value.slice(dash + 1).toUpperCase() : null;
+            if (suffix !== null && ['', 'C', 'CF', 'G', 'GF'].includes(suffix)) {
+                return cut(value.slice(0, dash), max) + value.slice(dash);
+            }
+        }
+        return cut(value, max);
     },
 
     // "PLA-CF" -> { material: "PLA", fiber: "CF" }
