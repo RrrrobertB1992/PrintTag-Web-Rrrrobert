@@ -72,7 +72,8 @@ Tags are written as an `application/opentag3d` NDEF record holding the
 (version 2.003). Notes on how form fields are stored:
 
 - `PLA-CF` / `PLA-GF` style materials are split into the base material and a
-  `CF`/`GF` modifier; otherwise the Material Variant is the modifier
+  `CF`/`GF` modifier, so the Material Variant is hidden for them; otherwise the
+  Material Variant is the modifier
 - Text fields have fixed byte limits (material and modifier 5, brand 16), and
   temperatures are stored in 5°C steps; the form lists anything that will change
 - Target nozzle/bed temps default to the middle of the min/max range

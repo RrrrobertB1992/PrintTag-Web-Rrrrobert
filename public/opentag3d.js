@@ -61,7 +61,7 @@ const OpenTag3D = {
     FIBER_MODIFIERS: ['CF', 'GF'],
 
     availableFields: function(formData) {
-        return new Set([
+        const fields = new Set([
             'materialType', 'brand', 'extendedSubType',
             'colorHex', 'colorHex2', 'colorHex3', 'colorHex4',
             'minTemp', 'maxTemp', 'bedTempMin', 'bedTempMax',
@@ -78,6 +78,13 @@ const OpenTag3D = {
             // Bytes of a loaded tag, so fields without a form input survive a rewrite
             'opentag3dBase'
         ]);
+
+        // CF/GF materials use the only modifier field (PLA + CF), so there is
+        // no room for a variant: hide it and don't write it
+        if (formData && this.splitMaterial(formData.materialType || '').fiber) {
+            fields.delete('extendedSubType');
+        }
+        return fields;
     },
 
     getFileExtension(format) {
