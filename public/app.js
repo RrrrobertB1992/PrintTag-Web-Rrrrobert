@@ -844,11 +844,44 @@ const app = {
         this.refreshPalette(name);
     },
 
-    resetSavedValues(name) {
-        const label = { brand: 'brands', material: 'materials', variant: 'variants' }[name] || 'values';
-        if (!window.confirm(`Remove all saved custom ${label} and go back to the default list?`)) return;
-        this.setSavedValues(name, []);
-        this.refreshPalette(name);
+    // Clear the saved values of every palette after confirmation
+    resetSavedValues() {
+        if (!window.confirm('Remove all saved custom values and go back to the default lists?')) return;
+        for (const name in this.palettes) {
+            if (!this.palettes[name].customInputId || !this.getSavedValues(name).length) continue;
+            this.setSavedValues(name, []);
+            this.refreshPalette(name);
+        }
+        this.updateResetButton();
+    },
+
+    // Palettes that can have saved values, in page order
+    savablePalettes() {
+        return Object.keys(this.palettes).filter(name =>
+            this.palettes[name].customInputId && document.getElementById(this.palettes[name].paletteId));
+    },
+
+    // One "Reset saved custom values" button below the last such palette,
+    // shown only while any palette has saved values
+    updateResetButton() {
+        const names = this.savablePalettes();
+        if (!names.length) return;
+        let row = document.getElementById('savedValuesReset');
+        if (!row) {
+            const lastPalette = document.getElementById(this.palettes[names[names.length - 1]].paletteId);
+            const group = lastPalette.closest('.form-group') || lastPalette;
+            row = document.createElement('div');
+            row.id = 'savedValuesReset';
+            row.className = 'saved-actions form-group';
+            const reset = document.createElement('button');
+            reset.type = 'button';
+            reset.className = 'btn-secondary';
+            reset.textContent = '↺ Reset saved custom values';
+            reset.onclick = () => this.resetSavedValues();
+            row.appendChild(reset);
+            group.insertAdjacentElement('afterend', row);
+        }
+        row.classList.toggle('hidden', !names.some(name => this.getSavedValues(name).length));
     },
 
     // Remove / Reset buttons under a palette that has saved values
@@ -867,8 +900,9 @@ const app = {
         const value = document.getElementById(config.inputId).value;
         const customInput = document.getElementById(config.customInputId);
         const selectedSaved = saved.includes(value) && customInput.classList.contains('hidden') ? value : null;
+        // Only a Remove button for the selected saved value
         row.innerHTML = '';
-        row.classList.toggle('hidden', saved.length === 0);
+        row.classList.toggle('hidden', !selectedSaved);
         if (selectedSaved) {
             const remove = document.createElement('button');
             remove.type = 'button';
@@ -877,12 +911,7 @@ const app = {
             remove.onclick = () => this.removeSavedValue(name, selectedSaved);
             row.appendChild(remove);
         }
-        const reset = document.createElement('button');
-        reset.type = 'button';
-        reset.className = 'btn-secondary';
-        reset.textContent = '↺ Reset to defaults';
-        reset.onclick = () => this.resetSavedValues(name);
-        row.appendChild(reset);
+        this.updateResetButton();
     },
 
     _createSwatch(label, value, onSelect) {
