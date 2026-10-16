@@ -2,7 +2,7 @@ const formats = {
     FORMATS: {
         'openspool_extended': { module: OpenSpool, label: 'OpenSpool - Snapmaker U1 Extended (JSON)', hidden: false },
         'openspool_compat': { module: OpenSpool, label: 'OpenSpool - Compat (JSON)', hidden: false },
-        'opentag3d': { module: OpenTag3D, label: 'OpenTag3D v2 (Binary)', hidden: false },
+        'opentag3d': { module: OpenTag3D, label: 'OpenTag3D v2 (Binary)', hidden: true },
         'openprinttag': { module: OpenPrintTag, label: 'OpenPrintTag (CBOR)', hidden: true }
     },
 

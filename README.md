@@ -27,11 +27,12 @@ This application supports three open standards:
 
 - **OpenSpool RFID**: Simple JSON-based format for basic filament data
 - **OpenPrintTag**: Comprehensive CBOR-based format with advanced fields
-- **OpenTag3D v2**: Fixed binary memory map (needs NTAG215/216)
+- **OpenTag3D v2**: Fixed binary memory map (needs NTAG215/216), e.g. factory-tagged spools
 
 **Creating New Tags:**
 
-- OpenSpool (JSON) and OpenTag3D v2 (binary) can be used when creating new tags
+- Only OpenSpool (JSON) format is supported when creating new tags
+- This ensures compatibility and simplicity for most use cases
 
 **Reading/Updating Existing Tags:**
 
