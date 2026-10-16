@@ -102,6 +102,9 @@ const app = {
         'PA-CF': { minTemp: 250, maxTemp: 280, bedTempMin: 70, bedTempMax: 90 }
     },
 
+    // Primary color plus up to 4 extra colors
+    MAX_COLORS: 5,
+
     palettes: {
         material: {
             paletteId: 'materialPalette',
@@ -129,15 +132,16 @@ const app = {
         this.checkNFC();
         // Removed preset swatch palette; using canvas pickers only
         if (typeof ColorPicker !== 'undefined' && ColorPicker && typeof ColorPicker.init === 'function') {
-            ColorPicker.init(this);
+            ColorPicker.init(this, this.MAX_COLORS);
         }
         for (const name in this.palettes) this.initPalette(name);
         this.populateFormats();
         this.initEventListeners();
+        this.updateColorSlots();
         this.updateFormat();
         this.updateVisibility();
-        // Initialize all four colors
-        for (let i = 1; i <= 4; i++) {
+        // Initialize all colors
+        for (let i = 1; i <= this.MAX_COLORS; i++) {
             this.updateColor('#FFFFFF', i);
         }
         this.applyTemperaturePreset();
@@ -310,8 +314,8 @@ const app = {
             this.handleFileUpload(e.target.files[0]);
         });
 
-        // Add event listeners for all four color inputs
-        for (let i = 1; i <= 4; i++) {
+        // Add event listeners for all color inputs
+        for (let i = 1; i <= this.MAX_COLORS; i++) {
             document.getElementById(`colorHex${i}`).addEventListener('input', (e) => {
                 this.updateColor('#' + e.target.value, i);
                 this.updateRecordSize();
@@ -323,9 +327,12 @@ const app = {
             this.updateVisibility();
         });
 
-        document.getElementById('showAdditionalColors').addEventListener('change', (e) => {
-            this.toggleAdditionalColors(e.target.checked);
-        });
+        // Extra colors (2..MAX_COLORS) must be enabled before they can be set
+        for (let i = 2; i <= this.MAX_COLORS; i++) {
+            document.getElementById(`colorEnable${i}`).addEventListener('change', (e) => {
+                this.setColorEnabled(i, e.target.checked);
+            });
+        }
 
         document.getElementById('brandInput').addEventListener('input', () => {
             document.getElementById('brandValue').value = document.getElementById('brandInput').value || '';
@@ -390,25 +397,23 @@ const app = {
         document.getElementById('formatSelect').value = data.format || format;
         this.setPaletteValue('material', data.materialType || 'PLA');
 
-        // Populate all four color fields
-        document.getElementById('colorHex1').value = data.colorHex || 'FFFFFF';
-        this.updateColor('#' + (data.colorHex || 'FFFFFF'), 1);
+        // Populate all color fields
+        for (let i = 1; i <= this.MAX_COLORS; i++) {
+            const hex = data[i === 1 ? 'colorHex' : `colorHex${i}`] || 'FFFFFF';
+            document.getElementById(`colorHex${i}`).value = hex;
+            this.updateColor('#' + hex, i);
+        }
 
-        document.getElementById('colorHex2').value = data.colorHex2 || 'FFFFFF';
-        this.updateColor('#' + (data.colorHex2 || 'FFFFFF'), 2);
-
-        document.getElementById('colorHex3').value = data.colorHex3 || 'FFFFFF';
-        this.updateColor('#' + (data.colorHex3 || 'FFFFFF'), 3);
-
-        document.getElementById('colorHex4').value = data.colorHex4 || 'FFFFFF';
-        this.updateColor('#' + (data.colorHex4 || 'FFFFFF'), 4);
-
-        // Show additional colors if any are present
-        const hasAdditionalColors = (data.colorHex2 && data.colorHex2 !== 'FFFFFF') ||
-                                     (data.colorHex3 && data.colorHex3 !== 'FFFFFF') ||
-                                     (data.colorHex4 && data.colorHex4 !== 'FFFFFF');
-        document.getElementById('showAdditionalColors').checked = hasAdditionalColors;
-        this.toggleAdditionalColors(hasAdditionalColors);
+        // Enable each extra color present in the data. Colors are enabled in
+        // order, so a later color also enables any earlier gaps.
+        let enableUpTo = 1;
+        for (let i = 2; i <= this.MAX_COLORS; i++) {
+            if (data[`colorHex${i}`]) enableUpTo = i;
+        }
+        for (let i = 2; i <= this.MAX_COLORS; i++) {
+            document.getElementById(`colorEnable${i}`).checked = i <= enableUpTo;
+        }
+        this.updateColorSlots();
 
         if (data.brand && this.palettes.brand.items.includes(data.brand)) {
             this.setPaletteValue('brand', data.brand);
@@ -464,9 +469,10 @@ const app = {
             materialType: document.getElementById('materialType').value,
             brand: brand || 'Generic',
             colorHex: document.getElementById('colorHex1').value.replace('#', ''),
-            colorHex2: document.getElementById('colorHex2').value.replace('#', ''),
-            colorHex3: document.getElementById('colorHex3').value.replace('#', ''),
-            colorHex4: document.getElementById('colorHex4').value.replace('#', ''),
+            colorHex2: this.getExtraColor(2),
+            colorHex3: this.getExtraColor(3),
+            colorHex4: this.getExtraColor(4),
+            colorHex5: this.getExtraColor(5),
 
             // Temps/IDs
             minTemp: document.getElementById('minTemp').value,
@@ -839,11 +845,33 @@ const app = {
         return '#' + result.slice(0, 3).map(x => parseInt(x).toString(16).padStart(2, '0')).join('');
     },
 
-    toggleAdditionalColors(show) {
-        const additionalColorFields = document.querySelectorAll('.additional-colors');
-        additionalColorFields.forEach(field => {
-            field.style.display = show ? 'block' : 'none';
-        });
+    // Extra color i's hex, or '' when it isn't enabled (so it isn't written)
+    getExtraColor(i) {
+        if (!document.getElementById(`colorEnable${i}`).checked) return '';
+        return document.getElementById(`colorHex${i}`).value.replace('#', '');
+    },
+
+    setColorEnabled(i, enabled) {
+        if (enabled) {
+            // Enabling a color also enables any earlier ones, keeping them in order
+            for (let j = 2; j <= i; j++) document.getElementById(`colorEnable${j}`).checked = true;
+        } else {
+            // Disabling a color also disables every later one
+            for (let j = i; j <= this.MAX_COLORS; j++) document.getElementById(`colorEnable${j}`).checked = false;
+        }
+        this.updateColorSlots();
+        this.updateRecordSize();
+    },
+
+    // Show each enabled color's fields, and offer the next color's checkbox
+    // only once the one before it is enabled.
+    updateColorSlots() {
+        for (let i = 2; i <= this.MAX_COLORS; i++) {
+            const enabled = document.getElementById(`colorEnable${i}`).checked;
+            const prevEnabled = i === 2 || document.getElementById(`colorEnable${i - 1}`).checked;
+            document.querySelector(`.extra-color[data-color-index="${i}"]`).style.display = prevEnabled ? '' : 'none';
+            document.getElementById(`colorFields${i}`).style.display = enabled ? '' : 'none';
+        }
     },
 
     showStatus(id, type, message) {
