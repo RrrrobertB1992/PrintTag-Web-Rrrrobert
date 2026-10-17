@@ -273,7 +273,7 @@ const SavedColors = {
                 tile.appendChild(this.colorBar(entry.colors));
                 const hex = document.createElement('span');
                 hex.className = 'sc-hex';
-                hex.textContent = entry.colors.join(' ');
+                hex.textContent = entry.colors.join('\n');
                 const name = document.createElement('span');
                 name.className = 'sc-name';
                 name.textContent = entry.name || ' ';
@@ -363,13 +363,13 @@ const SavedColors = {
             #savedColors .sc-labelrow { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
             #savedColors .sc-labelrow label { flex: 1; margin: 0; }
             #savedColors .sc-toggle { width: auto; margin: 0; padding: 0; background: none; border: none; color: var(--accent); font-size: 0.85rem; font-weight: 600; cursor: pointer; }
-            #savedColors .sc-tile { flex-direction: column; align-items: stretch; gap: 0.2rem; padding: 0.4rem; text-align: center; }
+            #savedColors .sc-tile { flex-direction: column; align-items: stretch; gap: 0.2rem; padding: 0.4rem; text-align: center; white-space: normal; overflow: visible; }
             #savedColors .sc-bar { display: flex; height: 22px; border-radius: 3px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.25); }
             #savedColors .sc-bar span { flex: 1; }
             #savedColors .sc-picked { width: 40px; height: 18px; flex: none; }
-            #savedColors .sc-hex { font-family: monospace; font-size: 0.78rem; word-break: break-word; }
+            #savedColors .sc-hex { font-family: monospace; font-size: 0.78rem; white-space: pre-line; line-height: 1.2; }
             #savedColors .sc-name { font-size: 0.72rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.85; }
-            #savedColors .sc-vars { font-size: 0.65rem; font-weight: 500; opacity: 0.7; }
+            #savedColors .sc-vars { font-size: 0.65rem; font-weight: 500; opacity: 0.7; white-space: normal; line-height: 1.25; }
             #savedColors .sc-tile.selected .sc-name, #savedColors .sc-tile.selected .sc-vars { opacity: 1; }
             #savedColors .sc-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.35rem; }
             #savedColors .sc-actions button { width: auto; margin: 0; padding: 0.3rem 0.6rem; font-size: 0.8rem; }
