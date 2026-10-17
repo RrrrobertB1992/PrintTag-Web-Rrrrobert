@@ -207,17 +207,6 @@ const SavedColors = {
         targets.forEach(el => el && el.classList.toggle('saved-color-hidden', hidden));
     },
 
-    swatch(colors) {
-        const sw = document.createElement('span');
-        sw.className = 'sc-swatch' + (colors.length > 1 ? ' multi' : '');
-        colors.forEach(hex => {
-            const part = document.createElement('span');
-            part.style.background = '#' + hex;
-            sw.appendChild(part);
-        });
-        return sw;
-    },
-
     button(text, onClick, extraClass) {
         const b = document.createElement('button');
         b.type = 'button';
@@ -249,124 +238,106 @@ const SavedColors = {
         const [brand, type] = key.split('|');
         root.innerHTML = '';
 
-        // Header (tap to expand/collapse)
-        const header = document.createElement('div');
-        header.className = 'sc-header' + (this.expanded ? '' : ' collapsed');
-        header.setAttribute('role', 'button');
-        header.tabIndex = 0;
-        const icon = document.createElement('span');
-        icon.className = 'sc-icon';
-        icon.textContent = '▼';
-        const title = document.createElement('span');
-        title.className = 'sc-title';
-        title.innerHTML = '<strong>Saved colors</strong> ';
-        const sub = document.createElement('span');
-        sub.className = 'sc-sub';
-        sub.textContent = `${brand} ${type} · ${entries.length}`;
-        title.appendChild(sub);
-        header.append(icon, title);
-        if (selected) {
-            const picked = document.createElement('span');
-            picked.className = 'sc-picked';
-            picked.appendChild(this.swatch(selected.colors));
-            header.appendChild(picked);
+        // Label row: "Saved Colors · Brand Type (n)" with a Show/Hide toggle
+        const labelRow = document.createElement('div');
+        labelRow.className = 'sc-labelrow';
+        const label = document.createElement('label');
+        label.textContent = `Saved Colors · ${brand} ${type} (${entries.length})`;
+        labelRow.appendChild(label);
+        if (selected && !this.expanded) {
+            const picked = this.colorBar(selected.colors);
+            picked.classList.add('sc-picked');
+            labelRow.appendChild(picked);
         }
-        const toggle = () => { this.expanded = !this.expanded; this.render(); };
-        header.onclick = toggle;
-        header.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } };
-        root.appendChild(header);
+        if (entries.length) {
+            const toggle = document.createElement('button');
+            toggle.type = 'button';
+            toggle.className = 'sc-toggle';
+            toggle.textContent = this.expanded ? 'Hide ▴' : 'Show ▾';
+            toggle.onclick = () => { this.expanded = !this.expanded; this.renaming = false; this.render(); };
+            labelRow.appendChild(toggle);
+        }
+        root.appendChild(labelRow);
 
-        // Rows
-        if (this.expanded) {
-            const list = document.createElement('div');
-            list.className = 'sc-list';
-            if (!entries.length) {
-                const empty = document.createElement('div');
-                empty.className = 'sc-empty';
-                empty.textContent = 'No saved colors yet. Colors are saved when you write a tag, or with Save current colors.';
-                list.appendChild(empty);
-            }
+        // Tiles, styled and laid out like the palette swatches
+        if (this.expanded && entries.length) {
+            const grid = document.createElement('div');
+            grid.className = 'material-palette sc-grid';
             entries.slice(0, this.shown).forEach(entry => {
                 const isSelected = selected === entry;
-                const row = document.createElement('div');
-                row.className = 'sc-row' + (isSelected ? ' selected' : '');
-                row.appendChild(this.swatch(entry.colors));
-                const hexes = document.createElement('span');
-                hexes.className = 'sc-hexes';
-                entry.colors.forEach(hex => {
-                    const h = document.createElement('span');
-                    h.textContent = hex;
-                    hexes.appendChild(h);
-                });
-                row.appendChild(hexes);
-
-                if (isSelected && this.renaming) {
-                    const box = document.createElement('span');
-                    box.className = 'sc-rename';
-                    const input = document.createElement('input');
-                    input.type = 'text';
-                    input.value = entry.name || '';
-                    input.placeholder = 'Color name';
-                    input.maxLength = 32;
-                    input.onkeydown = e => {
-                        if (e.key === 'Enter') { e.preventDefault(); this.rename(entry, input.value); }
-                        if (e.key === 'Escape') { e.preventDefault(); this.renaming = false; this.render(); }
-                    };
-                    input.onclick = e => e.stopPropagation();
-                    box.append(input,
-                        this.button('✓', e => { e.stopPropagation(); this.rename(entry, input.value); }),
-                        this.button('✕', e => { e.stopPropagation(); this.renaming = false; this.render(); }));
-                    row.appendChild(box);
-                    setTimeout(() => input.focus(), 0);
-                } else {
-                    const name = document.createElement('span');
-                    name.className = 'sc-name';
-                    name.textContent = entry.name || '';
-                    const vars = document.createElement('span');
-                    vars.className = 'sc-vars';
-                    entry.variants.forEach(v => {
-                        const tag = document.createElement('span');
-                        tag.className = 'sc-var' + (v === variant ? ' current' : '');
-                        tag.textContent = v || '—';
-                        tag.title = v ? `Saved as ${v}` : 'Saved with no variant';
-                        vars.appendChild(tag);
-                    });
-                    const del = document.createElement('button');
-                    del.type = 'button';
-                    del.className = 'sc-delete';
-                    del.textContent = '✕';
-                    del.title = 'Remove this saved color';
-                    del.onclick = e => { e.stopPropagation(); this.removeRow(entry); };
-                    row.append(name, vars, del);
-                    // Tapping the selected row again deselects it
-                    row.onclick = () => (isSelected ? this.deselect() : this.select(entry));
-                }
-                list.appendChild(row);
+                const tile = document.createElement('div');
+                tile.className = 'material-swatch sc-tile' + (isSelected ? ' selected' : '');
+                tile.setAttribute('role', 'button');
+                tile.tabIndex = 0;
+                tile.title = entry.colors.map(h => '#' + h).join(' + ') + (entry.name ? ` · ${entry.name}` : '');
+                tile.appendChild(this.colorBar(entry.colors));
+                const hex = document.createElement('span');
+                hex.className = 'sc-hex';
+                hex.textContent = entry.colors.join(' ');
+                const name = document.createElement('span');
+                name.className = 'sc-name';
+                name.textContent = entry.name || ' ';
+                const vars = document.createElement('span');
+                vars.className = 'sc-vars';
+                vars.textContent = entry.variants.map(v => v || 'No variant').join(' · ');
+                tile.append(hex, name, vars);
+                // Tapping the selected tile again deselects it
+                const choose = () => (isSelected ? this.deselect() : this.select(entry));
+                tile.onclick = choose;
+                tile.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(); } };
+                grid.appendChild(tile);
             });
-            if (entries.length > this.shown) {
-                const more = this.button(`Show ${Math.min(this.PAGE_SIZE, entries.length - this.shown)} more (${entries.length - this.shown} left)`,
-                    () => { this.shown += this.PAGE_SIZE; this.render(); }, 'sc-more');
-                list.appendChild(more);
-            }
-            if (entries.length) {
-                const clear = this.button(`Clear saved colors for ${brand} ${type}`, () => this.clearKey(), 'sc-clear');
-                list.appendChild(clear);
-            }
-            root.appendChild(list);
+            root.appendChild(grid);
         }
 
-        // Actions (shown even when collapsed)
+        // Buttons
         const actions = document.createElement('div');
-        actions.className = 'sc-actions';
-        if (selected) {
-            actions.appendChild(this.button('✏️ Rename', () => { this.expanded = true; this.renaming = true; this.render(); }));
+        actions.className = 'saved-actions sc-actions';
+        if (selected && this.renaming) {
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = selected.name || '';
+            input.placeholder = 'Color name';
+            input.maxLength = 32;
+            input.className = 'sc-rename';
+            input.onkeydown = e => {
+                if (e.key === 'Enter') { e.preventDefault(); this.rename(selected, input.value); }
+                if (e.key === 'Escape') { e.preventDefault(); this.renaming = false; this.render(); }
+            };
+            actions.append(input,
+                this.button('✓ Save name', () => this.rename(selected, input.value)),
+                this.button('Cancel', () => { this.renaming = false; this.render(); }));
+            setTimeout(() => input.focus(), 0);
+        } else if (selected) {
+            actions.appendChild(this.button('✏️ Rename', () => { this.renaming = true; this.render(); }));
             if (selected.variants.includes(variant)) {
-                actions.appendChild(this.button(`🗑 Remove "${variant || 'no variant'}"`, () => this.removeVariant(selected, variant)));
+                actions.appendChild(this.button(`🗑 Remove "${variant || 'No variant'}"`, () => this.removeVariant(selected, variant)));
             }
+            actions.appendChild(this.button('🗑 Remove color', () => this.removeRow(selected)));
         } else {
             actions.appendChild(this.button('💾 Save current colors', () => this.saveCurrent()));
         }
+        if (this.expanded && entries.length > this.shown) {
+            const left = entries.length - this.shown;
+            actions.appendChild(this.button(`Show ${Math.min(this.PAGE_SIZE, left)} more (${left} left)`,
+                () => { this.shown += this.PAGE_SIZE; this.render(); }, 'sc-more'));
+        }
+        if (this.expanded && entries.length && !selected) {
+            actions.appendChild(this.button(`Clear saved colors for ${brand} ${type}`, () => this.clearKey(), 'sc-clear'));
+        }
         root.appendChild(actions);
+    },
+
+    // Color bar: one block per color
+    colorBar(colors) {
+        const bar = document.createElement('span');
+        bar.className = 'sc-bar';
+        colors.forEach(hex => {
+            const part = document.createElement('span');
+            part.style.background = '#' + hex;
+            bar.appendChild(part);
+        });
+        return bar;
     },
 
     // Re-render when brand/type changes (and reset paging/selection)
@@ -389,38 +360,26 @@ const SavedColors = {
         const style = document.createElement('style');
         style.textContent = `
             .saved-color-hidden { display: none !important; }
-            #savedColors { margin-bottom: 1.25rem; }
-            #savedColors .sc-header { display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.75rem; background: var(--bg-tertiary); border-radius: 4px; cursor: pointer; user-select: none; }
-            #savedColors .sc-icon { transition: transform 0.2s; font-size: 0.75rem; }
-            #savedColors .sc-header.collapsed .sc-icon { transform: rotate(-90deg); }
-            #savedColors .sc-title { flex: 1; min-width: 0; font-size: 0.9rem; }
-            #savedColors .sc-sub { color: var(--text-secondary); font-size: 0.8rem; }
-            #savedColors .sc-list { border: 1px solid var(--border); border-top: none; border-radius: 0 0 4px 4px; }
-            #savedColors .sc-row { display: flex; align-items: center; gap: 0.55rem; padding: 0.5rem 0.7rem; border-top: 1px solid var(--border); cursor: pointer; }
-            #savedColors .sc-row:first-child { border-top: none; }
-            #savedColors .sc-row.selected { background: rgba(255, 107, 53, 0.15); box-shadow: inset 3px 0 0 var(--accent); }
-            #savedColors .sc-swatch { display: flex; border-radius: 4px; overflow: hidden; border: 1px solid #666; flex-shrink: 0; }
-            #savedColors .sc-swatch span { width: 34px; height: 26px; display: block; }
-            #savedColors .sc-swatch.multi span { width: 17px; }
-            #savedColors .sc-picked .sc-swatch span { width: 22px; height: 18px; }
-            #savedColors .sc-picked .sc-swatch.multi span { width: 11px; }
-            #savedColors .sc-hexes { display: flex; flex-direction: column; font-family: monospace; font-size: 0.9rem; line-height: 1.25; }
-            #savedColors .sc-name { flex: 1; min-width: 0; color: var(--text-secondary); font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-            #savedColors .sc-vars { display: flex; flex-wrap: wrap; gap: 0.2rem; justify-content: flex-end; max-width: 120px; }
-            #savedColors .sc-var { font-size: 0.68rem; font-weight: 600; padding: 0.08rem 0.35rem; border-radius: 3px; background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-secondary); }
-            #savedColors .sc-var.current { border-color: var(--accent); color: var(--text-primary); }
-            #savedColors .sc-delete { width: auto; margin: 0; padding: 0.2rem 0.4rem; background: none; border: none; color: var(--text-secondary); font-size: 1rem; cursor: pointer; }
-            #savedColors .sc-rename { flex: 1; display: flex; gap: 0.3rem; align-items: center; min-width: 0; }
-            #savedColors .sc-rename input { flex: 1; min-width: 0; padding: 0.35rem 0.5rem; font-size: 0.85rem; }
-            #savedColors .sc-empty { padding: 0.6rem 0.75rem; color: var(--text-secondary); font-size: 0.8rem; }
-            #savedColors button.btn-secondary { width: auto; margin: 0; padding: 0.3rem 0.6rem; font-size: 0.8rem; }
-            #savedColors .sc-more, #savedColors .sc-clear { display: block; margin: 0.5rem 0.7rem !important; }
-            #savedColors .sc-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.4rem; }
+            #savedColors .sc-labelrow { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+            #savedColors .sc-labelrow label { flex: 1; margin: 0; }
+            #savedColors .sc-toggle { width: auto; margin: 0; padding: 0; background: none; border: none; color: var(--accent); font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+            #savedColors .sc-tile { flex-direction: column; align-items: stretch; gap: 0.2rem; padding: 0.4rem; text-align: center; }
+            #savedColors .sc-bar { display: flex; height: 22px; border-radius: 3px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.25); }
+            #savedColors .sc-bar span { flex: 1; }
+            #savedColors .sc-picked { width: 40px; height: 18px; flex: none; }
+            #savedColors .sc-hex { font-family: monospace; font-size: 0.78rem; word-break: break-word; }
+            #savedColors .sc-name { font-size: 0.72rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.85; }
+            #savedColors .sc-vars { font-size: 0.65rem; font-weight: 500; opacity: 0.7; }
+            #savedColors .sc-tile.selected .sc-name, #savedColors .sc-tile.selected .sc-vars { opacity: 1; }
+            #savedColors .sc-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.35rem; }
+            #savedColors .sc-actions button { width: auto; margin: 0; padding: 0.3rem 0.6rem; font-size: 0.8rem; }
+            #savedColors .sc-rename { flex: 1 1 100%; padding: 0.5rem; }
         `;
         document.head.appendChild(style);
 
         const root = document.createElement('div');
         root.id = 'savedColors';
+        root.className = 'form-group';
         group.insertAdjacentElement('beforebegin', root);
 
         // Follow form changes (brand/type/variant/format) without changing app.js
