@@ -10,6 +10,7 @@ const SavedColors = {
     PAGE_SIZE: 15,
 
     selected: null,     // colors key (e.g. "2B2B2D,FF0000") of the selected row
+    snapshot: null,     // color pickers from before a saved color was selected
     renaming: false,
     expanded: false,
     shown: 15,          // rows shown before "Show more"
@@ -129,7 +130,46 @@ const SavedColors = {
 
     // --- Actions ---
 
+    // Remember the color pickers before a saved color replaces them, so
+    // deselecting brings back what was there (e.g. colors picked by hand)
+    takeSnapshot() {
+        const value = id => { const el = document.getElementById(id); return el ? el.value : null; };
+        const checked = id => { const el = document.getElementById(id); return el ? el.checked : null; };
+        this.snapshot = {
+            hex: [1, 2, 3, 4, 5].map(i => value(`colorHex${i}`)),
+            enabled: [2, 3, 4, 5].map(i => checked(`colorEnable${i}`)),
+            additional: checked('showAdditionalColors'),
+            colorName: value('colorName')
+        };
+    },
+
+    restoreSnapshot() {
+        const snap = this.snapshot;
+        this.snapshot = null;
+        if (!snap) return;
+        snap.hex.forEach((hex, idx) => {
+            const input = document.getElementById(`colorHex${idx + 1}`);
+            if (!input || hex === null) return;
+            input.value = hex;
+            app.updateColor('#' + hex, idx + 1);
+        });
+        if (document.getElementById('colorEnable2')) {
+            snap.enabled.forEach((on, idx) => {
+                const box = document.getElementById(`colorEnable${idx + 2}`);
+                if (box && on !== null) box.checked = on;
+            });
+            if (typeof app.updateColorSlots === 'function') app.updateColorSlots();
+        } else if (snap.additional !== null) {
+            document.getElementById('showAdditionalColors').checked = snap.additional;
+            if (typeof app.toggleAdditionalColors === 'function') app.toggleAdditionalColors(snap.additional);
+        }
+        const colorName = document.getElementById('colorName');
+        if (colorName && snap.colorName !== null) colorName.value = snap.colorName;
+    },
+
     select(entry) {
+        // Keep the first snapshot when switching between saved colors
+        if (!this.selected) this.takeSnapshot();
         this.selected = this.colorsId(entry.colors);
         this.renaming = false;
         this.applyColors(entry.colors);
@@ -139,9 +179,12 @@ const SavedColors = {
         this.render();
     },
 
+    // Deselecting puts back the colors from before the saved color was picked
     deselect() {
         this.selected = null;
         this.renaming = false;
+        this.restoreSnapshot();
+        app.updateRecordSize();
         this.render();
     },
 
@@ -279,7 +322,14 @@ const SavedColors = {
                 name.textContent = entry.name || ' ';
                 const vars = document.createElement('span');
                 vars.className = 'sc-vars';
-                vars.textContent = entry.variants.map(v => v || 'No variant').join(' · ');
+                // The current variant is highlighted so matching colors are easy to spot
+                entry.variants.forEach((v, idx) => {
+                    if (idx) vars.appendChild(document.createTextNode(' · '));
+                    const tag = document.createElement('span');
+                    tag.textContent = v || 'No variant';
+                    if (v === variant) tag.className = 'sc-var-current';
+                    vars.appendChild(tag);
+                });
                 tile.append(hex, name, vars);
                 // Tapping the selected tile again deselects it
                 const choose = () => (isSelected ? this.deselect() : this.select(entry));
@@ -346,6 +396,7 @@ const SavedColors = {
         if (key !== this.currentKey) {
             this.currentKey = key;
             this.selected = null;
+            this.snapshot = null;
             this.renaming = false;
             this.shown = this.PAGE_SIZE;
         }
@@ -371,6 +422,9 @@ const SavedColors = {
             #savedColors .sc-name { font-size: 0.72rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.85; }
             #savedColors .sc-vars { font-size: 0.65rem; font-weight: 500; opacity: 0.7; white-space: normal; line-height: 1.25; }
             #savedColors .sc-tile.selected .sc-name, #savedColors .sc-tile.selected .sc-vars { opacity: 1; }
+            #savedColors .sc-var-current { color: var(--accent); font-weight: 700; }
+            #savedColors .sc-tile:has(.sc-var-current) .sc-vars { opacity: 1; }
+            #savedColors .sc-tile.selected .sc-var-current { color: #fff; text-decoration: underline; }
             #savedColors .sc-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.35rem; }
             #savedColors .sc-actions button { width: auto; margin: 0; padding: 0.3rem 0.6rem; font-size: 0.8rem; }
             #savedColors .sc-rename { flex: 1 1 100%; padding: 0.5rem; }
@@ -393,6 +447,7 @@ const SavedColors = {
         const populateForm = app.populateForm;
         app.populateForm = function (...args) {
             SavedColors.selected = null;
+            SavedColors.snapshot = null;
             const result = populateForm.apply(this, args);
             SavedColors.refresh();
             return result;
