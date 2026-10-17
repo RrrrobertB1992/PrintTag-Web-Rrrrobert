@@ -146,6 +146,8 @@ const SavedColors = {
     },
 
     removeRow(entry) {
+        const label = entry.colors.join(' + ') + (entry.name ? ` (${entry.name})` : '');
+        if (!window.confirm(`Remove saved color ${label}?`)) return;
         const id = this.colorsId(entry.colors);
         this.setEntries(this.currentKey, this.getEntries(this.currentKey).filter(e => this.colorsId(e.colors) !== id));
         if (this.selected === id) this.deselect();
@@ -336,7 +338,8 @@ const SavedColors = {
                     del.title = 'Remove this saved color';
                     del.onclick = e => { e.stopPropagation(); this.removeRow(entry); };
                     row.append(name, vars, del);
-                    row.onclick = () => this.select(entry);
+                    // Tapping the selected row again deselects it
+                    row.onclick = () => (isSelected ? this.deselect() : this.select(entry));
                 }
                 list.appendChild(row);
             });
@@ -357,9 +360,8 @@ const SavedColors = {
         actions.className = 'sc-actions';
         if (selected) {
             actions.appendChild(this.button('✏️ Rename', () => { this.expanded = true; this.renaming = true; this.render(); }));
-            actions.appendChild(this.button('↩ Deselect', () => this.deselect()));
             if (selected.variants.includes(variant)) {
-                actions.appendChild(this.button(`🗑 Remove from "${variant || 'no variant'}"`, () => this.removeVariant(selected, variant)));
+                actions.appendChild(this.button(`🗑 Remove "${variant || 'no variant'}"`, () => this.removeVariant(selected, variant)));
             }
         } else {
             actions.appendChild(this.button('💾 Save current colors', () => this.saveCurrent()));
