@@ -323,7 +323,7 @@ const SavedColors = {
                 () => { this.shown += this.PAGE_SIZE; this.render(); }, 'sc-more'));
         }
         if (this.expanded && entries.length && !selected) {
-            actions.appendChild(this.button(`Clear saved colors for ${brand} ${type}`, () => this.clearKey(), 'sc-clear'));
+            actions.appendChild(this.button(`🗑 Clear ${brand} ${type}`, () => this.clearKey(), 'sc-clear'));
         }
         root.appendChild(actions);
     },
