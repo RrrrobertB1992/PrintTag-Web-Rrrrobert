@@ -179,6 +179,18 @@ const SavedColors = {
         this.render();
     },
 
+    // Mark the saved color matching the form's colors as selected, without
+    // changing the form (keeps the tag's own color name)
+    selectMatching() {
+        if (!this.currentKey) return;
+        const id = this.colorsId(this.formColors(app.getFormData()));
+        if (!this.getEntries(this.currentKey).some(e => this.colorsId(e.colors) === id)) return;
+        this.takeSnapshot();
+        this.selected = id;
+        this.renaming = false;
+        this.render();
+    },
+
     // Deselecting puts back the colors from before the saved color was picked
     deselect() {
         this.selected = null;
@@ -443,13 +455,16 @@ const SavedColors = {
             SavedColors.refresh();
             return result;
         };
-        // Loading a tag or starting a new one clears the selection
+        // Loading a tag or starting a new one clears the selection. A loaded
+        // tag (read or opened from a file, which passes its format) whose
+        // colors match a saved color selects that saved color.
         const populateForm = app.populateForm;
         app.populateForm = function (...args) {
             SavedColors.selected = null;
             SavedColors.snapshot = null;
             const result = populateForm.apply(this, args);
             SavedColors.refresh();
+            if (args[1]) SavedColors.selectMatching();
             return result;
         };
         // Save colors automatically after a successful write
