@@ -221,7 +221,7 @@ const ColorSlots = {
         msg = document.createElement('small');
         msg.id = `colorHexError${i}`;
         msg.className = 'cs-error cs-hidden';
-        msg.textContent = 'Not a valid color: enter 3 or 6 hex digits (e.g. F53 or FF5533)';
+        msg.textContent = 'Not a valid color: use 3 or 6 hex digits';
         row.insertAdjacentElement('afterend', msg);
         return msg;
     },
@@ -392,7 +392,7 @@ const ColorSlots = {
             .cs-error { display: block; color: #e74c3c; font-size: 0.8rem; margin-top: 0.25rem; }
             #colorSlots .cs-slot.cs-bad, #colorSlots .cs-slot.cs-bad.cs-active { border-color: #e74c3c; }
             #colorSlots .cs-slot.cs-bad.cs-active { box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.35); }
-            #colorSlots .cs-slot.cs-bad .cs-num { color: #e74c3c; }
+            #colorSlots .cs-slot.cs-bad .cs-num, #colorSlots .cs-slot.cs-bad.cs-active .cs-num { color: #e74c3c; }
             body.cs-on .cs-group [id^="colorFields"] { margin-top: 0 !important; }
             #colorSlots .cs-grid { margin-bottom: 0.5rem; }
             #colorSlots .cs-slot { flex-direction: column; align-items: stretch; justify-content: flex-end; gap: 0.2rem; padding: 0.3rem; min-height: 58px; font-weight: 700; }
