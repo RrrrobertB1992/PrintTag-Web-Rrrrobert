@@ -208,7 +208,7 @@ const ColorSlots = {
         const style = document.createElement('style');
         style.textContent = `
             .cs-hidden, .cs-saved-hidden { display: none !important; }
-            body.cs-on .cs-group > label { display: none; }
+            body.cs-on .cs-group > label { display: none !important; }
             body.cs-on .cs-group { margin-bottom: 0.5rem; }
             body.cs-on #showAdditionalColors { display: none; }
             body.cs-on .cs-extra-hint { display: none !important; }
