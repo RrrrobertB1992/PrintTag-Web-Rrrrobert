@@ -96,10 +96,11 @@ const ColorSlots = {
         this.render();
     },
 
-    // Remove color k; later colors move down one
+    // Remove color k (any color, while there's more than one); later
+    // colors move down one
     remove(k) {
         const n = this.used();
-        if (k < 2 || k > n) return;
+        if (n < 2 || k < 1 || k > n) return;
         this.busy = true;
         for (let j = k; j < n; j++) this.setHex(j, this.hex(j + 1));
         this.setHex(n, 'FFFFFF');
@@ -167,9 +168,9 @@ const ColorSlots = {
         const editing = this.root.querySelector('.cs-editing span');
         editing.textContent = this.active === 1 ? 'Color 1 (Primary)' : `Color ${this.active}`;
 
-        // Remove button under the picker for colors 2+
+        // Remove button under the picker, while there's more than one color
         const g = this.group(this.active);
-        if (on && this.active > 1 && g) {
+        if (on && n > 1 && g) {
             g.insertAdjacentElement('afterend', this.actions);
             const btn = this.actions.querySelector('button');
             btn.textContent = `🗑 Remove Color ${this.active}`;
