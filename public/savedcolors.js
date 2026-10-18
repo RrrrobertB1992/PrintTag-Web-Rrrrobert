@@ -267,6 +267,7 @@ const SavedColors = {
         const b = document.createElement('button');
         b.type = 'button';
         b.className = 'btn-secondary' + (extraClass ? ' ' + extraClass : '');
+        b.dataset.scKey = extraClass || text.replace(/^\W+/, '').split(' ')[0];
         b.textContent = text;
         b.onclick = onClick;
         return b;
@@ -292,6 +293,10 @@ const SavedColors = {
         this.setPickersHidden(!!selected);
 
         const [brand, type] = key.split('|');
+        // Redrawing replaces every element, so remember which one had focus
+        // (e.g. a tile pressed with Enter) to put focus back on it afterwards
+        const active = document.activeElement;
+        const focusKey = active && root.contains(active) ? active.dataset.scKey || null : null;
         root.innerHTML = '';
 
         // Label row: "Saved Colors · Brand Type (n)" with a Show/Hide toggle
@@ -309,6 +314,7 @@ const SavedColors = {
             const toggle = document.createElement('button');
             toggle.type = 'button';
             toggle.className = 'sc-toggle';
+            toggle.dataset.scKey = 'toggle';
             toggle.textContent = this.expanded ? 'Hide ▴' : 'Show ▾';
             toggle.onclick = () => { this.expanded = !this.expanded; this.renaming = false; this.render(); };
             labelRow.appendChild(toggle);
@@ -323,6 +329,7 @@ const SavedColors = {
                 const isSelected = selected === entry;
                 const tile = document.createElement('div');
                 tile.className = 'material-swatch sc-tile' + (isSelected ? ' selected' : '');
+                tile.dataset.scKey = 'tile:' + this.colorsId(entry.colors);
                 tile.setAttribute('role', 'button');
                 tile.tabIndex = 0;
                 tile.title = entry.colors.map(h => '#' + h).join(' + ') + (entry.name ? ` · ${entry.name}` : '');
@@ -363,6 +370,7 @@ const SavedColors = {
             input.placeholder = 'Color name';
             input.maxLength = 32;
             input.className = 'sc-rename';
+            input.dataset.scKey = 'rename';
             input.onkeydown = e => {
                 if (e.key === 'Enter') { e.preventDefault(); this.rename(selected, input.value); }
                 if (e.key === 'Escape') { e.preventDefault(); this.renaming = false; this.render(); }
@@ -372,7 +380,7 @@ const SavedColors = {
                 this.button('Cancel', () => { this.renaming = false; this.render(); }));
             setTimeout(() => input.focus(), 0);
         } else if (selected) {
-            actions.appendChild(this.button('✏️ Rename', () => { this.renaming = true; this.render(); }));
+            actions.appendChild(this.button('✏️ Rename', () => { this.renaming = true; this.focusRename = true; this.render(); }));
             if (selected.variants.includes(variant)) {
                 actions.appendChild(this.button(`🗑 Remove "${variant || 'No variant'}"`, () => this.removeVariant(selected, variant)));
             }
@@ -389,6 +397,19 @@ const SavedColors = {
             actions.appendChild(this.button(`🗑 Clear ${brand} ${type}`, () => this.clearKey(), 'sc-clear'));
         }
         root.appendChild(actions);
+
+        // Rename mode: straight into the name box. Otherwise, if focus was in
+        // here, put it back on the same element, or the nearest sensible one
+        // when that's gone (the selected tile, then the Show/Hide toggle).
+        const find = k => root.querySelector(`[data-sc-key="${CSS.escape(k)}"]`);
+        if (this.renaming && this.focusRename) {
+            this.focusRename = false;
+            const input = find('rename');
+            if (input) { input.focus(); input.select(); }
+        } else if (focusKey) {
+            const target = find(focusKey) || (selected && find('tile:' + this.colorsId(selected.colors))) || find('toggle');
+            if (target) target.focus();
+        }
     },
 
     // Color bar: one block per color
