@@ -14,6 +14,7 @@ const ColorSlots = {
     actions: null,
     busy: false,     // ignore our own calls into app while changing colors
     refocus: false,  // put keyboard focus back on the active button after render
+    layout: '',      // last button layout drawn (count|max|active)
     touched: new Set(), // colors whose hex box was left, so errors can show
 
     perColor() { return !!document.getElementById('colorEnable2'); },
@@ -282,23 +283,29 @@ const ColorSlots = {
         }
 
         const grid = this.root.querySelector('.cs-grid');
-        grid.innerHTML = '';
-        for (let i = 1; i <= n; i++) {
-            const b = document.createElement('div');
-            b.className = 'material-swatch cs-slot' + (i === this.active ? ' cs-active' : '');
-            b.dataset.index = i;
-            if (i === this.active) b.setAttribute('aria-pressed', 'true');
-            b.innerHTML = '<span class="cs-sw"></span><span class="cs-num"></span>';
-            b.querySelector('.cs-num').textContent = i;
-            this.button(b, `Color ${i}`, () => this.select(i));
-            grid.appendChild(b);
-        }
-        if (n < max) {
-            const plus = document.createElement('div');
-            plus.className = 'material-swatch cs-slot cs-add';
-            plus.textContent = '+';
-            this.button(plus, `Add color ${n + 1}`, () => this.add());
-            grid.appendChild(plus);
+        // Rebuild the buttons only when they change: rebuilding mid-tap (e.g.
+        // when leaving a hex box updates the page) would swallow the tap
+        const layout = `${n}|${max}|${this.active}`;
+        if (layout !== this.layout || !grid.children.length) {
+            this.layout = layout;
+            grid.innerHTML = '';
+            for (let i = 1; i <= n; i++) {
+                const b = document.createElement('div');
+                b.className = 'material-swatch cs-slot' + (i === this.active ? ' cs-active' : '');
+                b.dataset.index = i;
+                if (i === this.active) b.setAttribute('aria-pressed', 'true');
+                b.innerHTML = '<span class="cs-sw"></span><span class="cs-num"></span>';
+                b.querySelector('.cs-num').textContent = i;
+                this.button(b, `Color ${i}`, () => this.select(i));
+                grid.appendChild(b);
+            }
+            if (n < max) {
+                const plus = document.createElement('div');
+                plus.className = 'material-swatch cs-slot cs-add';
+                plus.textContent = '+';
+                this.button(plus, `Add color ${n + 1}`, () => this.add());
+                grid.appendChild(plus);
+            }
         }
         this.paint();
         // After a keyboard press, keep focus on the color being edited
