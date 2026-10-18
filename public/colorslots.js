@@ -258,10 +258,26 @@ const ColorSlots = {
     },
 
     // Update just the button colors (called while dragging the picker)
+    // What to show for color i: its color (3 digits shown expanded), or a
+    // red-striped "not a color" pattern while the code isn't valid
+    swatch(i) {
+        const el = document.getElementById(`colorHex${i}`);
+        const v = el ? el.value.replace('#', '') : '';
+        if (/^[0-9A-F]{6}$/i.test(v)) return '#' + v;
+        if (/^[0-9A-F]{3}$/i.test(v)) return '#' + v.split('').map(c => c + c).join('');
+        return 'repeating-linear-gradient(45deg, rgba(231, 76, 60, 0.6) 0 5px, transparent 5px 10px)';
+    },
+
     paint() {
+        // The preview boxes next to the hex codes (the browser would otherwise
+        // show e.g. "C039" as a see-through color)
+        for (let i = 1; document.getElementById(`colorHex${i}`); i++) {
+            const preview = document.getElementById(`colorPreview${i}`);
+            if (preview) preview.style.background = this.swatch(i);
+        }
         if (!this.root) return;
         this.root.querySelectorAll('.cs-slot[data-index]').forEach(el => {
-            el.querySelector('.cs-sw').style.background = '#' + this.hex(+el.dataset.index);
+            el.querySelector('.cs-sw').style.background = this.swatch(+el.dataset.index);
         });
     },
 
@@ -374,7 +390,8 @@ const ColorSlots = {
             body.cs-on .cs-hint { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
             input.cs-invalid { border-color: #e74c3c !important; box-shadow: 0 0 0 1px #e74c3c; }
             .cs-error { display: block; color: #e74c3c; font-size: 0.8rem; margin-top: 0.25rem; }
-            #colorSlots .cs-slot.cs-bad { border-color: #e74c3c; }
+            #colorSlots .cs-slot.cs-bad, #colorSlots .cs-slot.cs-bad.cs-active { border-color: #e74c3c; }
+            #colorSlots .cs-slot.cs-bad.cs-active { box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.35); }
             #colorSlots .cs-slot.cs-bad .cs-num { color: #e74c3c; }
             body.cs-on .cs-group [id^="colorFields"] { margin-top: 0 !important; }
             #colorSlots .cs-grid { margin-bottom: 0.5rem; }
