@@ -14,6 +14,7 @@ const ColorSlots = {
     actions: null,
     busy: false,     // ignore our own calls into app while changing colors
     refocus: false,  // put keyboard focus back on the active button after render
+    touched: new Set(), // colors whose hex box was left, so errors can show
 
     perColor() { return !!document.getElementById('colorEnable2'); },
 
@@ -76,6 +77,7 @@ const ColorSlots = {
     },
 
     select(i) {
+        this.expandAll();
         this.active = i;
         this.render();
     },
@@ -83,6 +85,7 @@ const ColorSlots = {
     add() {
         const n = this.used() + 1;
         if (n > this.max()) return;
+        this.expandAll();
         this.busy = true;
         // Start from the previous color, so similar shades are a nudge away
         this.setHex(n, this.hex(n - 1));
@@ -114,6 +117,7 @@ const ColorSlots = {
             if (this.count === 1) this.setAdditional(false);
         }
         this.busy = false;
+        this.touched.clear();
         this.active = Math.min(k, n - 1);
         app.updateRecordSize();
         this.render();
@@ -123,6 +127,7 @@ const ColorSlots = {
     move(k, dir) {
         const j = k + dir;
         if (j < 1 || j > this.used()) return;
+        this.expandAll();
         const a = this.hex(k), b = this.hex(j);
         this.setHex(k, b);
         this.setHex(j, a);
@@ -157,6 +162,98 @@ const ColorSlots = {
         el.value = clean;
         const pos = Math.min(before, clean.length);
         try { el.setSelectionRange(pos, pos); } catch (e) { /* not focused */ }
+    },
+
+    // --- Hex validation: 3 digits expand to 6; anything else but 6 is an error
+
+    // Colors that count right now
+    inUse() { return Math.min(this.used(), this.max()); },
+
+    // "F53" -> "FF5533" (in the box, and tell the app)
+    expand(i) {
+        const el = document.getElementById(`colorHex${i}`);
+        if (!el || !/^[0-9A-F]{3}$/i.test(el.value)) return;
+        el.value = el.value.toUpperCase().split('').map(c => c + c).join('');
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+    },
+
+    expandAll() {
+        for (let i = 1; i <= this.inUse(); i++) this.expand(i);
+    },
+
+    isValid(i) {
+        const el = document.getElementById(`colorHex${i}`);
+        return !el || /^[0-9A-F]{6}$/i.test(el.value);
+    },
+
+    invalid() {
+        const bad = [];
+        for (let i = 1; i <= this.inUse(); i++) if (!this.isValid(i)) bad.push(i);
+        return bad;
+    },
+
+    // Red box + message under each bad color that's been left (or checked),
+    // and a red outline on its button
+    showErrors() {
+        for (let i = 1; document.getElementById(`colorHex${i}`); i++) {
+            const el = document.getElementById(`colorHex${i}`);
+            const bad = i <= this.inUse() && this.touched.has(i) && !this.isValid(i);
+            el.classList.toggle('cs-invalid', bad);
+            el.setAttribute('aria-invalid', bad ? 'true' : 'false');
+            const msg = this.errorEl(i);
+            if (msg) msg.classList.toggle('cs-hidden', !bad);
+        }
+        if (!this.root) return;
+        this.root.querySelectorAll('.cs-slot[data-index]').forEach(b => {
+            const i = +b.dataset.index;
+            b.classList.toggle('cs-bad', this.touched.has(i) && !this.isValid(i));
+        });
+    },
+
+    // The error message element under color i's hex box (made on first use)
+    errorEl(i) {
+        let msg = document.getElementById(`colorHexError${i}`);
+        if (msg) return msg;
+        const el = document.getElementById(`colorHex${i}`);
+        const row = el && el.parentElement;
+        if (!row) return null;
+        msg = document.createElement('small');
+        msg.id = `colorHexError${i}`;
+        msg.className = 'cs-error cs-hidden';
+        msg.textContent = 'Not a valid color: enter 3 or 6 hex digits (e.g. F53 or FF5533)';
+        row.insertAdjacentElement('afterend', msg);
+        return msg;
+    },
+
+    // Before writing, downloading or saving: expand short codes, and stop
+    // (pointing at the first bad color) if any color isn't valid
+    check(what) {
+        this.expandAll();
+        const bad = this.invalid();
+        for (let i = 1; i <= this.inUse(); i++) this.touched.add(i);
+        this.showErrors();
+        if (!bad.length) return true;
+        const i = bad[0];
+        if (this.root && !this.root.classList.contains('cs-hidden')) this.select(i);
+        const el = document.getElementById(`colorHex${i}`);
+        if (el && el.offsetParent !== null) {
+            el.focus();
+            el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }
+        const which = bad.length === 1 ? `Color ${i} isn't` : `Colors ${bad.join(', ')} aren't`;
+        app.showStatus('writeStatus', 'error', `${which} a valid hex code, so nothing was ${what}. Use 3 or 6 digits.`);
+        return false;
+    },
+
+    // Run check() before an app (or saved colors) action; skip the action if it fails
+    guard(obj, name, what) {
+        const original = obj && obj[name];
+        if (typeof original !== 'function') return;
+        const self = this;
+        obj[name] = function (...args) {
+            if (!self.check(what)) return;
+            return original.apply(this, args);
+        };
     },
 
     // Update just the button colors (called while dragging the picker)
@@ -231,6 +328,7 @@ const ColorSlots = {
             this.actions.classList.add('cs-hidden');
         }
         this.followSavedColors();
+        this.showErrors();
 
         // Canvases that were hidden need resizing to their real width
         requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
@@ -267,6 +365,10 @@ const ColorSlots = {
             body.cs-on .cs-extra-hint { display: none !important; }
             #colorSlots { margin-bottom: 0.5rem; }
             body.cs-on .cs-hint { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            input.cs-invalid { border-color: #e74c3c !important; box-shadow: 0 0 0 1px #e74c3c; }
+            .cs-error { display: block; color: #e74c3c; font-size: 0.8rem; margin-top: 0.25rem; }
+            #colorSlots .cs-slot.cs-bad { border-color: #e74c3c; }
+            #colorSlots .cs-slot.cs-bad .cs-num { color: #e74c3c; }
             body.cs-on .cs-group [id^="colorFields"] { margin-top: 0 !important; }
             #colorSlots .cs-grid { margin-bottom: 0.5rem; }
             #colorSlots .cs-slot { flex-direction: column; align-items: stretch; justify-content: flex-end; gap: 0.2rem; padding: 0.3rem; min-height: 58px; font-weight: 700; }
@@ -325,6 +427,20 @@ const ColorSlots = {
         document.addEventListener('input', (e) => {
             if (e.target && /^colorHex\d$/.test(e.target.id)) this.cleanHex(e.target);
         }, true);
+        document.addEventListener('input', (e) => {
+            if (e.target && /^colorHex\d$/.test(e.target.id)) this.showErrors();
+        });
+        // Leaving a hex box: expand 3 digits, then flag it if it's still not valid
+        document.addEventListener('focusout', (e) => {
+            const m = e.target && e.target.id && e.target.id.match(/^colorHex(\d)$/);
+            if (!m) return;
+            this.expand(+m[1]);
+            this.touched.add(+m[1]);
+            this.showErrors();
+        });
+        // No writing, downloading or saving with a bad color
+        this.guard(app, 'writeNFC', 'written');
+        this.guard(app, 'downloadFile', 'downloaded');
 
         // Hide the old ways of turning extra colors on
         const box = document.getElementById('showAdditionalColors');
@@ -334,6 +450,8 @@ const ColorSlots = {
         // Follow changes made elsewhere (loading a tag, format change, saved colors)
         this.wrap('populateForm', () => {
             this.active = 1;
+            this.touched.clear();
+            this.showErrors();
             if (!this.perColor()) this.count = this.countFromValues();
             this.render();
         });
@@ -344,7 +462,7 @@ const ColorSlots = {
             this.count = this.countFromValues();
             this.render();
         });
-        this.wrap('updateColor', () => this.paint());
+        this.wrap('updateColor', () => { this.paint(); this.showErrors(); });
         new MutationObserver(() => this.followSavedColors())
             .observe(g1, { attributes: true, attributeFilter: ['class'] });
 
@@ -352,6 +470,7 @@ const ColorSlots = {
         // (below Saved Colors, when that's on the page)
         const place = () => {
             g1.insertAdjacentElement('beforebegin', this.root);
+            if (typeof SavedColors !== 'undefined') this.guard(SavedColors, 'saveCurrent', 'saved');
             if (!this.perColor()) this.count = this.countFromValues();
             this.render();
         };
