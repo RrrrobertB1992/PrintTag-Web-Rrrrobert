@@ -146,6 +146,19 @@ const ColorSlots = {
         });
     },
 
+    // Hex boxes: keep only hex digits, upper case, at most 6. Runs before
+    // the app's own input handling, and keeps the cursor where it was.
+    cleanHex(el) {
+        const raw = el.value;
+        const clean = raw.replace(/[^0-9a-fA-F]/g, '').toUpperCase().slice(0, 6);
+        if (clean === raw) return;
+        const caret = el.selectionStart == null ? raw.length : el.selectionStart;
+        const before = raw.slice(0, caret).replace(/[^0-9a-fA-F]/g, '').length;
+        el.value = clean;
+        const pos = Math.min(before, clean.length);
+        try { el.setSelectionRange(pos, pos); } catch (e) { /* not focused */ }
+    },
+
     // Update just the button colors (called while dragging the picker)
     paint() {
         if (!this.root) return;
@@ -198,6 +211,11 @@ const ColorSlots = {
             if (el) el.focus();
         }
 
+        // Same one-line hint for every color, so the picker doesn't jump
+        document.querySelectorAll('.cs-hint').forEach(el => {
+            el.textContent = on ? 'Hold and drag on the picker, or type a hex code' : el.dataset.csText;
+        });
+
         const editing = this.root.querySelector('.cs-editing span');
         editing.textContent = this.active === 1 ? 'Color 1 (Primary)' : `Color ${this.active}`;
 
@@ -248,6 +266,7 @@ const ColorSlots = {
             body.cs-on #showAdditionalColors { display: none; }
             body.cs-on .cs-extra-hint { display: none !important; }
             #colorSlots { margin-bottom: 0.5rem; }
+            body.cs-on .cs-hint { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
             body.cs-on .cs-group [id^="colorFields"] { margin-top: 0 !important; }
             #colorSlots .cs-grid { margin-bottom: 0.5rem; }
             #colorSlots .cs-slot { flex-direction: column; align-items: stretch; justify-content: flex-end; gap: 0.2rem; padding: 0.3rem; min-height: 58px; font-weight: 700; }
@@ -288,6 +307,25 @@ const ColorSlots = {
             if (g.previousElementSibling !== last) last.insertAdjacentElement('afterend', g);
             last = g;
         }
+        // Hex boxes: clean what's typed or pasted (a leading # is dropped)
+        for (let i = 1; document.getElementById(`colorHex${i}`); i++) {
+            const el = document.getElementById(`colorHex${i}`);
+            el.maxLength = 7; // room for a pasted "#RRGGBB"; cleaned to 6
+            el.setAttribute('autocapitalize', 'characters');
+            el.setAttribute('autocomplete', 'off');
+            el.setAttribute('autocorrect', 'off');
+            el.spellcheck = false;
+            const g = this.group(i);
+            const hint = g && Array.from(g.querySelectorAll('small')).find(sm => /Hold and drag/.test(sm.textContent));
+            if (hint) {
+                hint.classList.add('cs-hint');
+                hint.dataset.csText = hint.textContent.trim();
+            }
+        }
+        document.addEventListener('input', (e) => {
+            if (e.target && /^colorHex\d$/.test(e.target.id)) this.cleanHex(e.target);
+        }, true);
+
         // Hide the old ways of turning extra colors on
         const box = document.getElementById('showAdditionalColors');
         if (box) box.closest('.form-group').classList.add('cs-extra-hint');
