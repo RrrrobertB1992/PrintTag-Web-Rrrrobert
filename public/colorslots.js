@@ -212,6 +212,8 @@ const ColorSlots = {
             body.cs-on .cs-group { margin-bottom: 0.5rem; }
             body.cs-on #showAdditionalColors { display: none; }
             body.cs-on .cs-extra-hint { display: none !important; }
+            #colorSlots { margin-bottom: 0.5rem; }
+            body.cs-on .cs-group [id^="colorFields"] { margin-top: 0 !important; }
             #colorSlots .cs-grid { margin-bottom: 0.5rem; }
             #colorSlots .cs-slot { flex-direction: column; align-items: stretch; justify-content: flex-end; gap: 0.2rem; padding: 0.3rem; min-height: 58px; font-weight: 700; }
             #colorSlots .cs-sw { flex: 1; min-height: 26px; border-radius: 3px; border: 1px solid rgba(255, 255, 255, 0.25); }
