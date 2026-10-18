@@ -154,6 +154,21 @@ const ColorSlots = {
 
     // Hex boxes: keep only hex digits, upper case, at most 6. Runs before
     // the app's own input handling, and keeps the cursor where it was.
+    // Pull a color code out of pasted text: the first stand-alone run of 3, 6
+    // or 8 hex digits (8 = with alpha, which is dropped). Handles "##FF5733",
+    // "0xFF5733", " #ff5733cc ", "Color: #FF5733" and the like.
+    extractCode(text) {
+        const m = String(text || '').match(/(?<![0-9a-f])([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3})(?![0-9a-f])/i);
+        return m ? m[1].slice(0, 6).toUpperCase() : null;
+    },
+
+    // Put a pasted code in the box (replacing what was there) and tell the app
+    pasteCode(el, code) {
+        el.value = code;
+        try { el.setSelectionRange(code.length, code.length); } catch (e) { /* not focused */ }
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+    },
+
     cleanHex(el) {
         const raw = el.value;
         const clean = raw.replace(/[^0-9a-fA-F]/g, '').toUpperCase().slice(0, 6);
@@ -436,7 +451,10 @@ const ColorSlots = {
         // Hex boxes: clean what's typed or pasted (a leading # is dropped)
         for (let i = 1; document.getElementById(`colorHex${i}`); i++) {
             const el = document.getElementById(`colorHex${i}`);
-            el.maxLength = 7; // room for a pasted "#RRGGBB"; cleaned to 6
+            // No length limit in the box itself: the browser would cut a paste
+            // like "##FF5733" short before it could be cleaned. cleanHex()
+            // keeps it to 6 digits instead.
+            el.removeAttribute('maxlength');
             el.setAttribute('autocapitalize', 'characters');
             el.setAttribute('autocomplete', 'off');
             el.setAttribute('autocorrect', 'off');
@@ -448,8 +466,26 @@ const ColorSlots = {
                 hint.dataset.csText = hint.textContent.trim();
             }
         }
+        document.addEventListener('paste', (e) => {
+            if (!e.target || !/^colorHex\d$/.test(e.target.id)) return;
+            const code = this.extractCode(e.clipboardData && e.clipboardData.getData('text'));
+            if (!code) return; // nothing that looks like a code: clean as typed
+            e.preventDefault();
+            this.pasteCode(e.target, code);
+        }, true);
         document.addEventListener('input', (e) => {
-            if (e.target && /^colorHex\d$/.test(e.target.id)) this.cleanHex(e.target);
+            if (!e.target || !/^colorHex\d$/.test(e.target.id)) return;
+            // Keyboards that insert clipboard text without a paste event
+            // (e.g. a clipboard suggestion) send it as one multi-character input
+            if (e.data && e.data.length > 1) {
+                const code = this.extractCode(e.data);
+                if (code) {
+                    e.target.value = code;
+                    try { e.target.setSelectionRange(code.length, code.length); } catch (err) { /* not focused */ }
+                    return;
+                }
+            }
+            this.cleanHex(e.target);
         }, true);
         document.addEventListener('input', (e) => {
             if (e.target && /^colorHex\d$/.test(e.target.id)) this.showErrors();
