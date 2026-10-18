@@ -752,6 +752,14 @@ const app = {
             document.getElementById('maxTemp').value = preset.maxTemp;
             document.getElementById('bedTempMin').value = preset.bedTempMin;
             document.getElementById('bedTempMax').value = preset.bedTempMax;
+        } else {
+            // A saved custom material brings back the temps it was last written with
+            const saved = this.getSavedTemps(materialType);
+            if (saved) {
+                this.TEMP_FIELDS.forEach(id => {
+                    if (saved[id] !== undefined && saved[id] !== '') document.getElementById(id).value = saved[id];
+                });
+            }
         }
         this.updateRecordSize();
     },
@@ -939,8 +947,57 @@ const app = {
         this.restorePaletteValue(name, value);
     },
 
+    // --- Temperatures remembered for saved custom materials ---
+
+    SAVED_TEMPS_KEY: 'printtag-saved-material-temps',
+    TEMP_FIELDS: ['minTemp', 'maxTemp', 'bedTempMin', 'bedTempMax'],
+
+    loadSavedTemps() {
+        try {
+            const all = JSON.parse(localStorage.getItem(this.SAVED_TEMPS_KEY) || '{}');
+            return all && typeof all === 'object' && !Array.isArray(all) ? all : {};
+        } catch (e) {
+            return {};
+        }
+    },
+
+    storeSavedTemps(all) {
+        try {
+            if (Object.keys(all).length) localStorage.setItem(this.SAVED_TEMPS_KEY, JSON.stringify(all));
+            else localStorage.removeItem(this.SAVED_TEMPS_KEY);
+        } catch (e) {
+            // Storage unavailable; temps just won't be remembered
+        }
+    },
+
+    getSavedTemps(material) {
+        const temps = material ? this.loadSavedTemps()[material] : null;
+        return temps && typeof temps === 'object' ? temps : null;
+    },
+
+    // Keep the temps written with a custom (non-preset) material, and drop
+    // temps for materials that are no longer saved
+    saveMaterialTemps(formData) {
+        if (!this.palettes.material.customInputId) return;
+        const material = (formData.materialType || '').trim();
+        const all = this.loadSavedTemps();
+        if (material && !this.materialPresets[material]) {
+            const temps = {};
+            this.TEMP_FIELDS.forEach(id => {
+                const v = String(formData[id] ?? '').trim();
+                if (v !== '') temps[id] = v;
+            });
+            if (Object.keys(temps).length) all[material] = temps;
+        }
+        const keep = new Set([...this.getSavedValues('material'), material]);
+        Object.keys(all).forEach(m => { if (!keep.has(m)) delete all[m]; });
+        this.storeSavedTemps(all);
+    },
+
     // Remember custom values on a tag that was written or downloaded
     saveCustomValues(formData) {
+        // Temps first, so re-selecting the newly saved material keeps them
+        this.saveMaterialTemps(formData);
         for (const name in this.palettes) {
             if (!this.palettes[name].customInputId) continue;
             const value = (formData[this.PALETTE_FORM_KEYS[name]] || '').trim();
@@ -953,6 +1010,11 @@ const app = {
 
     removeSavedValue(name, value) {
         this.setSavedValues(name, this.getSavedValues(name).filter(v => v !== value));
+        if (name === 'material') {
+            const all = this.loadSavedTemps();
+            delete all[value];
+            this.storeSavedTemps(all);
+        }
         this.refreshPalette(name);
     },
 
@@ -964,6 +1026,7 @@ const app = {
             this.setSavedValues(name, []);
             this.refreshPalette(name);
         }
+        this.storeSavedTemps({});
         this.updateResetButton();
     },
 
