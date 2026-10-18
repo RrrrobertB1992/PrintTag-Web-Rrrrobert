@@ -185,7 +185,8 @@ const SavedColors = {
         if (!this.currentKey) return;
         const id = this.colorsId(this.formColors(app.getFormData()));
         if (!this.getEntries(this.currentKey).some(e => this.colorsId(e.colors) === id)) return;
-        this.takeSnapshot();
+        // Already showing a saved color: keep the colors from before it
+        if (!this.selected) this.takeSnapshot();
         this.selected = id;
         this.renaming = false;
         this.render();
@@ -467,13 +468,16 @@ const SavedColors = {
             if (args[1]) SavedColors.selectMatching();
             return result;
         };
-        // Save colors automatically after a successful write
+        // Save colors automatically after a successful write, and select them
         const handleWriteProgress = app.handleWriteProgress;
         app.handleWriteProgress = function (...args) {
             const callback = handleWriteProgress.apply(this, args);
             return (status, error) => {
                 callback(status, error);
-                if (status === 'success' && SavedColors.saveFromForm(app.getFormData())) SavedColors.render();
+                if (status !== 'success') return;
+                SavedColors.saveFromForm(app.getFormData());
+                SavedColors.selectMatching();
+                SavedColors.render();
             };
         };
 
