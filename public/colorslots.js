@@ -155,11 +155,14 @@ const ColorSlots = {
     // Hex boxes: keep only hex digits, upper case, at most 6. Runs before
     // the app's own input handling, and keeps the cursor where it was.
     // Pull a color code out of pasted text: the first stand-alone run of 3, 6
-    // or 8 hex digits (8 = with alpha, which is dropped). Handles "##FF5733",
-    // "0xFF5733", " #ff5733cc ", "Color: #FF5733" and the like.
+    // or 8 hex digits (8 = with alpha, which is dropped; 3 is expanded to 6,
+    // since a paste is complete). Handles "##FF5733", "0xFF5733",
+    // " #ff5733cc ", "Color: #FF5733", "#abc" and the like.
     extractCode(text) {
         const m = String(text || '').match(/(?<![0-9a-f])([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3})(?![0-9a-f])/i);
-        return m ? m[1].slice(0, 6).toUpperCase() : null;
+        if (!m) return null;
+        const code = m[1].toUpperCase();
+        return code.length === 3 ? code.split('').map(c => c + c).join('') : code.slice(0, 6);
     },
 
     // Put a pasted code in the box (replacing what was there) and tell the app
@@ -197,9 +200,10 @@ const ColorSlots = {
         for (let i = 1; i <= this.inUse(); i++) this.expand(i);
     },
 
+    // 6 digits, or 3 (expanded when the box is left or before writing/saving)
     isValid(i) {
         const el = document.getElementById(`colorHex${i}`);
-        return !el || /^[0-9A-F]{6}$/i.test(el.value);
+        return !el || /^([0-9A-F]{3}|[0-9A-F]{6})$/i.test(el.value);
     },
 
     invalid() {
