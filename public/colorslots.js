@@ -205,8 +205,8 @@ const ColorSlots = {
         const g = this.group(this.active);
         if (on && n > 1 && g) {
             g.insertAdjacentElement('afterend', this.actions);
-            this.actions.querySelector('.cs-left').classList.toggle('cs-hidden', this.active === 1);
-            this.actions.querySelector('.cs-right').classList.toggle('cs-hidden', this.active === n);
+            this.actions.querySelector('.cs-left').disabled = this.active === 1;
+            this.actions.querySelector('.cs-right').disabled = this.active === n;
             this.actions.querySelector('.cs-remove').textContent = `🗑 Remove Color ${this.active}`;
             this.actions.classList.remove('cs-hidden');
         } else {
@@ -260,6 +260,7 @@ const ColorSlots = {
             #colorSlots .cs-editing span { color: var(--accent); }
             #colorSlotsActions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 1rem; }
             #colorSlotsActions button { width: auto; margin: 0; padding: 0.3rem 0.6rem; font-size: 0.8rem; }
+            #colorSlotsActions button:disabled { opacity: 0.35; }
         `;
         document.head.appendChild(style);
 
@@ -269,9 +270,11 @@ const ColorSlots = {
         this.root.innerHTML = '<label>Colors</label><div class="material-palette cs-grid"></div><div class="cs-editing">Editing <span></span></div>';
         this.actions = document.createElement('div');
         this.actions.id = 'colorSlotsActions';
-        this.actions.innerHTML = '<button type="button" class="btn-secondary cs-left">◀ Move left</button>'
-            + '<button type="button" class="btn-secondary cs-right">Move right ▶</button>'
-            + '<button type="button" class="btn-secondary cs-remove"></button>';
+        // Remove first and the moves always present (greyed out when they
+        // can't be used), so no button slides under a repeated tap
+        this.actions.innerHTML = '<button type="button" class="btn-secondary cs-remove"></button>'
+            + '<button type="button" class="btn-secondary cs-left">◀ Move left</button>'
+            + '<button type="button" class="btn-secondary cs-right">Move right ▶</button>';
         this.actions.querySelector('.cs-left').addEventListener('click', () => this.move(this.active, -1));
         this.actions.querySelector('.cs-right').addEventListener('click', () => this.move(this.active, 1));
         this.actions.querySelector('.cs-remove').addEventListener('click', () => this.remove(this.active));
