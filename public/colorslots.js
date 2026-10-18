@@ -13,6 +13,7 @@ const ColorSlots = {
     root: null,
     actions: null,
     busy: false,     // ignore our own calls into app while changing colors
+    refocus: false,  // put keyboard focus back on the active button after render
 
     perColor() { return !!document.getElementById('colorEnable2'); },
 
@@ -83,7 +84,8 @@ const ColorSlots = {
         const n = this.used() + 1;
         if (n > this.max()) return;
         this.busy = true;
-        this.setHex(n, 'FFFFFF');
+        // Start from the previous color, so similar shades are a nudge away
+        this.setHex(n, this.hex(n - 1));
         if (this.perColor()) {
             app.setColorEnabled(n, true);
         } else {
@@ -101,6 +103,7 @@ const ColorSlots = {
     remove(k) {
         const n = this.used();
         if (n < 2 || k < 1 || k > n) return;
+        if (!confirm(`Remove Color ${k} (#${this.hex(k)})?`)) return;
         this.busy = true;
         for (let j = k; j < n; j++) this.setHex(j, this.hex(j + 1));
         this.setHex(n, 'FFFFFF');
@@ -114,6 +117,33 @@ const ColorSlots = {
         this.active = Math.min(k, n - 1);
         app.updateRecordSize();
         this.render();
+    },
+
+    // Swap color k with its neighbour (dir -1 = left, +1 = right)
+    move(k, dir) {
+        const j = k + dir;
+        if (j < 1 || j > this.used()) return;
+        const a = this.hex(k), b = this.hex(j);
+        this.setHex(k, b);
+        this.setHex(j, a);
+        this.active = j;
+        app.updateRecordSize();
+        this.render();
+    },
+
+    // Make a div act like a button for the keyboard too, like the palettes
+    button(el, label, fn) {
+        el.setAttribute('role', 'button');
+        el.setAttribute('tabindex', '0');
+        el.setAttribute('aria-label', label);
+        el.addEventListener('click', fn);
+        el.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                this.refocus = true;
+                fn();
+            }
+        });
     },
 
     // Update just the button colors (called while dragging the picker)
@@ -147,33 +177,37 @@ const ColorSlots = {
             const b = document.createElement('div');
             b.className = 'material-swatch cs-slot' + (i === this.active ? ' cs-active' : '');
             b.dataset.index = i;
-            b.setAttribute('role', 'button');
-            b.setAttribute('aria-label', `Color ${i}`);
+            if (i === this.active) b.setAttribute('aria-pressed', 'true');
             b.innerHTML = '<span class="cs-sw"></span><span class="cs-num"></span>';
             b.querySelector('.cs-num').textContent = i;
-            b.addEventListener('click', () => this.select(i));
+            this.button(b, `Color ${i}`, () => this.select(i));
             grid.appendChild(b);
         }
         if (n < max) {
             const plus = document.createElement('div');
             plus.className = 'material-swatch cs-slot cs-add';
-            plus.setAttribute('role', 'button');
-            plus.setAttribute('aria-label', `Add color ${n + 1}`);
             plus.textContent = '+';
-            plus.addEventListener('click', () => this.add());
+            this.button(plus, `Add color ${n + 1}`, () => this.add());
             grid.appendChild(plus);
         }
         this.paint();
+        // After a keyboard press, keep focus on the color being edited
+        if (this.refocus) {
+            this.refocus = false;
+            const el = grid.querySelector(`.cs-slot[data-index="${this.active}"]`);
+            if (el) el.focus();
+        }
 
         const editing = this.root.querySelector('.cs-editing span');
         editing.textContent = this.active === 1 ? 'Color 1 (Primary)' : `Color ${this.active}`;
 
-        // Remove button under the picker, while there's more than one color
+        // Move/Remove buttons under the picker, while there's more than one color
         const g = this.group(this.active);
         if (on && n > 1 && g) {
             g.insertAdjacentElement('afterend', this.actions);
-            const btn = this.actions.querySelector('button');
-            btn.textContent = `🗑 Remove Color ${this.active}`;
+            this.actions.querySelector('.cs-left').classList.toggle('cs-hidden', this.active === 1);
+            this.actions.querySelector('.cs-right').classList.toggle('cs-hidden', this.active === n);
+            this.actions.querySelector('.cs-remove').textContent = `🗑 Remove Color ${this.active}`;
             this.actions.classList.remove('cs-hidden');
         } else {
             this.actions.classList.add('cs-hidden');
@@ -224,7 +258,8 @@ const ColorSlots = {
             #colorSlots .cs-add { justify-content: center; align-items: center; border-style: dashed; font-size: 1.4rem; font-weight: 400; color: var(--text-secondary); }
             #colorSlots .cs-editing { font-size: 0.85rem; font-weight: 600; margin-bottom: 0; }
             #colorSlots .cs-editing span { color: var(--accent); }
-            #colorSlotsActions button { width: auto; margin: 0 0 1rem; padding: 0.3rem 0.6rem; font-size: 0.8rem; }
+            #colorSlotsActions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 1rem; }
+            #colorSlotsActions button { width: auto; margin: 0; padding: 0.3rem 0.6rem; font-size: 0.8rem; }
         `;
         document.head.appendChild(style);
 
@@ -234,8 +269,12 @@ const ColorSlots = {
         this.root.innerHTML = '<label>Colors</label><div class="material-palette cs-grid"></div><div class="cs-editing">Editing <span></span></div>';
         this.actions = document.createElement('div');
         this.actions.id = 'colorSlotsActions';
-        this.actions.innerHTML = '<button type="button" class="btn-secondary"></button>';
-        this.actions.querySelector('button').addEventListener('click', () => this.remove(this.active));
+        this.actions.innerHTML = '<button type="button" class="btn-secondary cs-left">◀ Move left</button>'
+            + '<button type="button" class="btn-secondary cs-right">Move right ▶</button>'
+            + '<button type="button" class="btn-secondary cs-remove"></button>';
+        this.actions.querySelector('.cs-left').addEventListener('click', () => this.move(this.active, -1));
+        this.actions.querySelector('.cs-right').addEventListener('click', () => this.move(this.active, 1));
+        this.actions.querySelector('.cs-remove').addEventListener('click', () => this.remove(this.active));
 
         // Single-checkbox layout keeps colors 2+ in the Advanced section:
         // move them up next to Color 1 so they share its place
