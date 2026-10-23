@@ -25,7 +25,10 @@ const OpenSpool = {
             colorHex2: 'additional_color_hexes',
             colorHex3: 'additional_color_hexes',
             colorHex4: 'additional_color_hexes',
-            colorHex5: 'additional_color_hexes'
+            colorHex5: 'additional_color_hexes',
+            // How the colors run: 0 = gradient, 1 = solid/segments (OrcaSlicer's
+            // filament_colour_type values). Only written with extra colors.
+            colorType: 'color_type'
         }
     },
 
@@ -62,6 +65,9 @@ const OpenSpool = {
         }
         if (additionalColors.length) {
             data.additional_color_hexes = additionalColors;
+            if (formData.colorType === '0' || formData.colorType === '1') {
+                data.color_type = Number(formData.colorType);
+            }
         }
 
         if (formData.brand) {
@@ -124,6 +130,9 @@ const OpenSpool = {
             lotNr: jsonData.lot_nr || '',
             extendedSubType: jsonData.subtype || ''
         };
+
+        // 0 = gradient; anything else (or missing) = solid/segments
+        result.colorType = String(jsonData.color_type) === '0' ? '0' : '1';
 
         // Extra colors map to colorHex2..colorHex5 in order
         const additional = Array.isArray(jsonData.additional_color_hexes) ? jsonData.additional_color_hexes : [];
