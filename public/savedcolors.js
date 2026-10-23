@@ -51,6 +51,23 @@ const SavedColors = {
         return colors.join(',');
     },
 
+    // A saved entry is its colors plus, for multi-color, gradient or not:
+    // the same colors as a gradient and as segments are two different spools.
+    // Style values follow OrcaSlicer's filament_colour_type: '0' = gradient,
+    // '1' (or missing) = solid/segments.
+    idFor(colors, style) {
+        return this.colorsId(colors) + (colors.length > 1 && style === '0' ? '~gradient' : '');
+    },
+
+    entryId(entry) {
+        return this.idFor(entry.colors, entry.colorType);
+    },
+
+    // The form's multi-color style ('1' when the form has no such choice)
+    formStyle(formData) {
+        return formData.colorType === '0' ? '0' : '1';
+    },
+
     // --- Reading / applying the form ---
 
     formKey(formData) {
@@ -117,10 +134,12 @@ const SavedColors = {
         const colors = this.formColors(formData);
         if (!key || !colors.length) return false;
         const variant = this.formVariant(formData);
-        const id = this.colorsId(colors);
+        const style = this.formStyle(formData);
+        const id = this.idFor(colors, style);
         const entries = this.getEntries(key);
-        const index = entries.findIndex(e => this.colorsId(e.colors) === id);
+        const index = entries.findIndex(e => this.entryId(e) === id);
         const entry = index >= 0 ? entries.splice(index, 1)[0] : { colors, name: '', variants: [] };
+        if (colors.length > 1) entry.colorType = style;
         if (!entry.variants.includes(variant)) entry.variants.push(variant);
         if (!entry.name && formData.colorName) entry.name = formData.colorName.trim();
         entries.unshift(entry);
@@ -139,7 +158,8 @@ const SavedColors = {
             hex: [1, 2, 3, 4, 5].map(i => value(`colorHex${i}`)),
             enabled: [2, 3, 4, 5].map(i => checked(`colorEnable${i}`)),
             additional: checked('showAdditionalColors'),
-            colorName: value('colorName')
+            colorName: value('colorName'),
+            colorType: value('colorType')
         };
     },
 
@@ -165,14 +185,23 @@ const SavedColors = {
         }
         const colorName = document.getElementById('colorName');
         if (colorName && snap.colorName !== null) colorName.value = snap.colorName;
+        if (snap.colorType !== null) this.applyStyle(snap.colorType);
+    },
+
+    // Set the form's Gradient/Segments choice, where the form has one
+    applyStyle(style) {
+        if (document.getElementById('colorType') && typeof app.setPaletteValue === 'function') {
+            app.setPaletteValue('colorType', style === '0' ? '0' : '1');
+        }
     },
 
     select(entry) {
         // Keep the first snapshot when switching between saved colors
         if (!this.selected) this.takeSnapshot();
-        this.selected = this.colorsId(entry.colors);
+        this.selected = this.entryId(entry);
         this.renaming = false;
         this.applyColors(entry.colors);
+        if (entry.colors.length > 1) this.applyStyle(entry.colorType);
         const colorName = document.getElementById('colorName');
         if (colorName && entry.name) colorName.value = entry.name;
         app.updateRecordSize();
@@ -183,8 +212,9 @@ const SavedColors = {
     // changing the form (keeps the tag's own color name)
     selectMatching() {
         if (!this.currentKey) return;
-        const id = this.colorsId(this.formColors(app.getFormData()));
-        if (!this.getEntries(this.currentKey).some(e => this.colorsId(e.colors) === id)) return;
+        const formData = app.getFormData();
+        const id = this.idFor(this.formColors(formData), this.formStyle(formData));
+        if (!this.getEntries(this.currentKey).some(e => this.entryId(e) === id)) return;
         // Already showing a saved color: keep the colors from before it
         if (!this.selected) this.takeSnapshot();
         this.selected = id;
@@ -204,16 +234,16 @@ const SavedColors = {
     removeRow(entry) {
         const label = entry.colors.join(' + ') + (entry.name ? ` (${entry.name})` : '');
         if (!window.confirm(`Remove saved color ${label}?`)) return;
-        const id = this.colorsId(entry.colors);
-        this.setEntries(this.currentKey, this.getEntries(this.currentKey).filter(e => this.colorsId(e.colors) !== id));
+        const id = this.entryId(entry);
+        this.setEntries(this.currentKey, this.getEntries(this.currentKey).filter(e => this.entryId(e) !== id));
         if (this.selected === id) this.deselect();
         else this.render();
     },
 
     removeVariant(entry, variant) {
-        const id = this.colorsId(entry.colors);
+        const id = this.entryId(entry);
         const entries = this.getEntries(this.currentKey);
-        const target = entries.find(e => this.colorsId(e.colors) === id);
+        const target = entries.find(e => this.entryId(e) === id);
         if (!target) return;
         target.variants = target.variants.filter(v => v !== variant);
         const remaining = target.variants.length ? entries : entries.filter(e => e !== target);
@@ -223,9 +253,9 @@ const SavedColors = {
     },
 
     rename(entry, name) {
-        const id = this.colorsId(entry.colors);
+        const id = this.entryId(entry);
         const entries = this.getEntries(this.currentKey);
-        const target = entries.find(e => this.colorsId(e.colors) === id);
+        const target = entries.find(e => this.entryId(e) === id);
         if (target) target.name = name.trim();
         this.setEntries(this.currentKey, entries);
         this.renaming = false;
@@ -285,7 +315,7 @@ const SavedColors = {
         }
         const entries = this.getEntries(key);
         const variant = this.formVariant(formData);
-        const selected = entries.find(e => this.colorsId(e.colors) === this.selected) || null;
+        const selected = entries.find(e => this.entryId(e) === this.selected) || null;
         if (!selected) {
             this.selected = null;
             this.renaming = false;
@@ -306,7 +336,7 @@ const SavedColors = {
         label.textContent = `Saved Colors · ${brand} ${type} (${entries.length})`;
         labelRow.appendChild(label);
         if (selected && !this.expanded) {
-            const picked = this.colorBar(selected.colors);
+            const picked = this.colorBar(selected.colors, selected.colorType);
             picked.classList.add('sc-picked');
             labelRow.appendChild(picked);
         }
@@ -329,11 +359,13 @@ const SavedColors = {
                 const isSelected = selected === entry;
                 const tile = document.createElement('div');
                 tile.className = 'material-swatch sc-tile' + (isSelected ? ' selected' : '');
-                tile.dataset.scKey = 'tile:' + this.colorsId(entry.colors);
+                tile.dataset.scKey = 'tile:' + this.entryId(entry);
                 tile.setAttribute('role', 'button');
                 tile.tabIndex = 0;
-                tile.title = entry.colors.map(h => '#' + h).join(' + ') + (entry.name ? ` · ${entry.name}` : '');
-                tile.appendChild(this.colorBar(entry.colors));
+                tile.title = entry.colors.map(h => '#' + h).join(' + ')
+                    + (entry.colors.length > 1 ? (entry.colorType === '0' ? ' · gradient' : ' · segments') : '')
+                    + (entry.name ? ` · ${entry.name}` : '');
+                tile.appendChild(this.colorBar(entry.colors, entry.colorType));
                 const hex = document.createElement('span');
                 hex.className = 'sc-hex';
                 hex.textContent = entry.colors.join('\n');
@@ -407,15 +439,19 @@ const SavedColors = {
             const input = find('rename');
             if (input) { input.focus(); input.select(); }
         } else if (focusKey) {
-            const target = find(focusKey) || (selected && find('tile:' + this.colorsId(selected.colors))) || find('toggle');
+            const target = find(focusKey) || (selected && find('tile:' + this.entryId(selected))) || find('toggle');
             if (target) target.focus();
         }
     },
 
-    // Color bar: one block per color
-    colorBar(colors) {
+    // Color bar: one block per color, or a blend for a gradient spool
+    colorBar(colors, style) {
         const bar = document.createElement('span');
         bar.className = 'sc-bar';
+        if (colors.length > 1 && style === '0') {
+            bar.style.background = `linear-gradient(to right, ${colors.map(h => '#' + h).join(', ')})`;
+            return bar;
+        }
         colors.forEach(hex => {
             const part = document.createElement('span');
             part.style.background = '#' + hex;
