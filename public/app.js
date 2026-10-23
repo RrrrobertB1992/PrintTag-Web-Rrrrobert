@@ -132,6 +132,13 @@ const app = {
             defaultValue: '',
             customInputId: 'variantInput',
         },
+        // Multi-color style, using OrcaSlicer's filament_colour_type values
+        colorType: {
+            paletteId: 'colorTypePalette',
+            inputId: 'colorType',
+            items: [{label: 'Gradient', value: '0'}, {label: 'Segments', value: '1'}],
+            defaultValue: '1',
+        },
     },
 
     init() {
@@ -453,6 +460,7 @@ const app = {
         document.getElementById('spoolmanId').value = data.spoolmanId || '';
         document.getElementById('lotNr').value = data.lotNr || '';
         this.setPaletteFromData('variant', data.extendedSubType ?? '');
+        this.setPaletteValue('colorType', data.colorType === '0' ? '0' : '1');
 
         // Advanced fields
         document.getElementById('materialName').value = data.materialName || '';
@@ -513,6 +521,7 @@ const app = {
             spoolmanId: document.getElementById('spoolmanId').value,
             lotNr: document.getElementById('lotNr').value,
             extendedSubType: document.getElementById('extendedSubType').value,
+            colorType: document.getElementById('colorType').value,
 
             // Advanced
             materialName: document.getElementById('materialName').value,
@@ -1209,6 +1218,9 @@ const app = {
             document.querySelector(`.extra-color[data-color-index="${i}"]`).style.display = prevEnabled ? '' : 'none';
             document.getElementById(`colorFields${i}`).style.display = enabled ? '' : 'none';
         }
+        // Gradient/Segments only matters once there's more than one color
+        const typeGroup = document.getElementById('colorTypeGroup');
+        if (typeGroup) typeGroup.style.display = document.getElementById('colorEnable2').checked ? '' : 'none';
     },
 
     showStatus(id, type, message) {

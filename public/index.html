@@ -663,6 +663,18 @@
                 </div>
             </div>
 
+            <!-- How a multi-color spool's colors run along the strand. Shown once
+                 there are 2+ colors; stored as color_type (OrcaSlicer's
+                 filament_colour_type values: 0 = gradient, 1 = solid/segments). -->
+            <div class="form-group" id="colorTypeGroup" data-field="colorType" style="display: none;">
+                <label>Multi-color Style</label>
+                <div class="material-palette" id="colorTypePalette"></div>
+                <input type="hidden" id="colorType" value="1">
+                <small style="color: var(--text-secondary); font-size: 0.8rem; display: block; margin-top: 0.25rem;">
+                    Gradient: the colors blend into each other. Segments: each color is a solid stretch.
+                </small>
+            </div>
+
             <div class="form-row">
                 <div class="form-group" data-field="minTemp">
                     <label>Min Nozzle Temp (°C)</label>
