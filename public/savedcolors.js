@@ -12,6 +12,7 @@ const SavedColors = {
     selected: null,     // colors key (e.g. "2B2B2D,FF0000") of the selected row
     snapshot: null,     // color pickers from before a saved color was selected
     renaming: false,
+    editing: false,     // the selected row's colors are being edited in the pickers
     expanded: false,
     shown: 15,          // rows shown before "Show more"
     currentKey: null,   // brand|type the list is showing
@@ -200,6 +201,7 @@ const SavedColors = {
         if (!this.selected) this.takeSnapshot();
         this.selected = this.entryId(entry);
         this.renaming = false;
+        this.editing = false;
         this.applyColors(entry.colors);
         if (entry.colors.length > 1) this.applyStyle(entry.colorType);
         const colorName = document.getElementById('colorName');
@@ -219,6 +221,7 @@ const SavedColors = {
         if (!this.selected) this.takeSnapshot();
         this.selected = id;
         this.renaming = false;
+        this.editing = false;
         this.render();
     },
 
@@ -226,6 +229,7 @@ const SavedColors = {
     deselect() {
         this.selected = null;
         this.renaming = false;
+        this.editing = false;
         this.restoreSnapshot();
         app.updateRecordSize();
         this.render();
@@ -259,6 +263,59 @@ const SavedColors = {
         if (target) target.name = name.trim();
         this.setEntries(this.currentKey, entries);
         this.renaming = false;
+        this.render();
+    },
+
+    // --- Editing a saved color's colors ---
+
+    startEdit() {
+        this.renaming = false;
+        this.editing = true;
+        this.focusEdit = true;
+        this.render();
+    },
+
+    // Put the saved color's own colors back and hide the pickers again
+    cancelEdit(entry) {
+        this.applyColors(entry.colors);
+        if (entry.colors.length > 1) this.applyStyle(entry.colorType);
+        this.editing = false;
+        app.updateRecordSize();
+        this.render();
+    },
+
+    // Replace the saved color's colors (and multi-color style) with the
+    // pickers', keeping its name, variants and place in the list. If that
+    // matches another saved color, the two are merged.
+    saveEdit(entry) {
+        // With the single color picker, stop on a bad hex code and point at it
+        if (typeof ColorSlots !== 'undefined' && typeof ColorSlots.check === 'function' && !ColorSlots.check('saved')) return;
+        const formData = app.getFormData();
+        const colors = this.formColors(formData);
+        if (!colors.length) {
+            app.showStatus('writeStatus', 'error', 'Color 1 isn\'t a valid hex code, so nothing was saved.');
+            return;
+        }
+        const style = this.formStyle(formData);
+        const newId = this.idFor(colors, style);
+        const oldId = this.entryId(entry);
+        const entries = this.getEntries(this.currentKey);
+        const index = entries.findIndex(e => this.entryId(e) === oldId);
+        if (index < 0) return;
+        const target = entries[index];
+        const other = newId !== oldId ? entries.find(e => this.entryId(e) === newId) : null;
+        if (other) {
+            target.variants.forEach(v => { if (!other.variants.includes(v)) other.variants.push(v); });
+            if (!other.name && target.name) other.name = target.name;
+            entries.splice(index, 1);
+        } else {
+            target.colors = colors;
+            if (colors.length > 1) target.colorType = style;
+            else delete target.colorType;
+        }
+        this.setEntries(this.currentKey, entries);
+        this.selected = newId;
+        this.editing = false;
         this.render();
     },
 
@@ -321,8 +378,10 @@ const SavedColors = {
         if (!selected) {
             this.selected = null;
             this.renaming = false;
+            this.editing = false;
         }
-        this.setPickersHidden(!!selected);
+        // Editing a saved color shows the pickers so its colors can be changed
+        this.setPickersHidden(!!selected && !this.editing);
 
         const [brand, type] = key.split('|');
         // Redrawing replaces every element, so remember which one had focus
@@ -413,8 +472,16 @@ const SavedColors = {
                 this.button('✓ Save name', () => this.rename(selected, input.value)),
                 this.button('Cancel', () => { this.renaming = false; this.render(); }));
             setTimeout(() => input.focus(), 0);
+        } else if (selected && this.editing) {
+            const note = document.createElement('small');
+            note.className = 'sc-edit-note';
+            note.textContent = 'Change the colors below, then save them to this saved color.';
+            actions.append(note,
+                this.button('✓ Save colors', () => this.saveEdit(selected), 'sc-save-edit'),
+                this.button('Cancel', () => this.cancelEdit(selected), 'sc-cancel-edit'));
         } else if (selected) {
             actions.appendChild(this.button('✏️ Rename', () => { this.renaming = true; this.focusRename = true; this.render(); }));
+            actions.appendChild(this.button('🎨 Edit colors', () => this.startEdit(), 'sc-edit'));
             if (selected.variants.includes(variant)) {
                 actions.appendChild(this.button(`🗑 Remove "${variant || 'No variant'}"`, () => this.removeVariant(selected, variant)));
             }
@@ -436,7 +503,10 @@ const SavedColors = {
         // here, put it back on the same element, or the nearest sensible one
         // when that's gone (the selected tile, then the Show/Hide toggle).
         const find = k => root.querySelector(`[data-sc-key="${CSS.escape(k)}"]`);
-        if (this.renaming && this.focusRename) {
+        if (this.editing && this.focusEdit) {
+            this.focusEdit = false;
+            if (focusKey) { const b = find('sc-save-edit'); if (b) b.focus(); }
+        } else if (this.renaming && this.focusRename) {
             this.focusRename = false;
             const input = find('rename');
             if (input) { input.focus(); input.select(); }
@@ -470,6 +540,7 @@ const SavedColors = {
             this.selected = null;
             this.snapshot = null;
             this.renaming = false;
+            this.editing = false;
             this.shown = this.PAGE_SIZE;
         }
         this.render();
@@ -499,6 +570,7 @@ const SavedColors = {
             #savedColors .sc-tile.selected .sc-var-current { color: #fff; text-decoration: underline; }
             #savedColors .sc-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.35rem; }
             #savedColors .sc-actions button { width: auto; margin: 0; padding: 0.3rem 0.6rem; font-size: 0.8rem; }
+            #savedColors .sc-edit-note { flex: 1 1 100%; color: var(--text-secondary); font-size: 0.8rem; }
             #savedColors .sc-rename { flex: 1 1 100%; padding: 0.5rem; }
         `;
         document.head.appendChild(style);
@@ -534,6 +606,7 @@ const SavedColors = {
             return (status, error) => {
                 callback(status, error);
                 if (status !== 'success') return;
+                SavedColors.editing = false;
                 SavedColors.saveFromForm(app.getFormData());
                 SavedColors.selectMatching();
                 SavedColors.render();
