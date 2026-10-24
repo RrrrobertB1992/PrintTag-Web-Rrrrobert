@@ -290,6 +290,8 @@ const SavedColors = {
         const additional = document.getElementById('showAdditionalColors');
         if (additional) targets.add(additional.closest('.form-group'));
         document.querySelectorAll('small[data-field="colorHex2"]').forEach(el => targets.add(el));
+        // The Gradient/Segments choice comes with the saved color too
+        targets.add(document.getElementById('colorTypeGroup'));
         targets.forEach(el => el && el.classList.toggle('saved-color-hidden', hidden));
     },
 
