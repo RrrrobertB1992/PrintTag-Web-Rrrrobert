@@ -656,8 +656,9 @@
             </div>
 
             <!-- How a multi-color spool's colors run along the strand. Shown once
-                 there are 2+ colors; stored as color_type (OrcaSlicer's
-                 filament_colour_type values: 0 = gradient, 1 = solid/segments). -->
+                 there are 2+ colors. Gradient is written as "color_type": 0
+                 (OrcaSlicer's filament_colour_type values); Segments is the
+                 default, so the field is left out. -->
             <div class="form-group" id="colorTypeGroup" data-field="colorType" style="display: none;">
                 <label>Multi-color Style</label>
                 <div class="material-palette" id="colorTypePalette"></div>
