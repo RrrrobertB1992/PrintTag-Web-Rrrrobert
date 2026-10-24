@@ -26,8 +26,9 @@ const OpenSpool = {
             colorHex3: 'additional_color_hexes',
             colorHex4: 'additional_color_hexes',
             colorHex5: 'additional_color_hexes',
-            // How the colors run: 0 = gradient, 1 = solid/segments (OrcaSlicer's
-            // filament_colour_type values). Only written with extra colors.
+            // How the colors run, using OrcaSlicer's filament_colour_type values:
+            // 0 = gradient, 1 = default (single color or segments). Only 0 is
+            // written; when it's missing, readers treat it as 1.
             colorType: 'color_type'
         }
     },
@@ -65,9 +66,7 @@ const OpenSpool = {
         }
         if (additionalColors.length) {
             data.additional_color_hexes = additionalColors;
-            if (formData.colorType === '0' || formData.colorType === '1') {
-                data.color_type = Number(formData.colorType);
-            }
+            if (formData.colorType === '0') data.color_type = 0;
         }
 
         if (formData.brand) {
